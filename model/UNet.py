@@ -84,7 +84,7 @@ class UNet(nn.Module):
         # Encoder path
         enc1 = self.encoder1(x)
 
-        # TODO
+        # TODO: 尚未完成条件融合
         # # enc1 = self.apply_conditioning(enc1, cond_emb)  # 条件融合
 
         enc2 = self.encoder2(self.pool1(enc1))
