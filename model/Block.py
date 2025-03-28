@@ -1,56 +1,86 @@
 import torch
 from torch import nn
+
 import math
 
 
 class TimeEmbedding(nn.Module):
+    """
+    时间步嵌入
+    """
 
-    # TODO
-
-    def __init__(self, dim):
+    def __init__(self, embedding_dim):
         super().__init__()
-        self.dim = dim
+        self.embedding_dim = embedding_dim
 
-    def forward(self, time):
-        time = torch.tensor(time)
-        half_dim = self.dim // 2
-        embeddings = math.log(10000) / (half_dim - 1)
-        embeddings = torch.exp(torch.arange(half_dim) * -embeddings)
-        embeddings = time.float()[:, None] * embeddings[None, :]
-        embeddings = torch.cat((embeddings.sin(), embeddings.cos()), dim=-1)
-        return embeddings
+        half_dim = embedding_dim // 2
+        div_term = torch.exp(
+            torch.arange(half_dim, dtype=torch.float32)
+            * (-math.log(10000.0) / half_dim)
+        )
+        self.register_buffer("div_term", div_term)
+
+    def forward(self, t):
+        t = t.float()
+
+        phase = t.view(-1, 1) * self.div_term.view(1, -1) * 2 * torch.pi
+
+        # 构建正弦余弦嵌入
+        embedding = torch.zeros(t.size(0), self.embedding_dim, device=t.device)
+        embedding[:, ::2] = torch.sin(phase)  # 偶数位置
+        embedding[:, 1::2] = torch.cos(phase)  # 奇数位置
+        return embedding
+
+
+class LabelEmbedding(nn.Module):
+    """
+    条件嵌入模块
+    """
+
+    def __init__(self, num_classes, embedding_dim):
+        super().__init__()
+        self.class_embedding = nn.Embedding(num_classes, embedding_dim)
+
+    def forward(self, x) -> torch.Tensor:
+        x = self.class_embedding(x.long())
+        return x
 
 
 class EmbeddingBlock(nn.Module):
     """
-    嵌入块
+    融合嵌入
     """
 
-    def __init__(self, num_classes, embedding_dim, time_dim=None):
+    def __init__(
+        self,
+        time_embed_dim: int = 64,
+        label_embed_dim: int = 64,
+        num_classes: int = 6,
+        output_dim: int = 128,
+    ):
         super().__init__()
-        time_dim = time_dim or embedding_dim // 2
 
         # 时间步嵌入
-        self.time_embedding = nn.Sequential(
-            TimeEmbedding(time_dim),
-            nn.Linear(time_dim, embedding_dim // 2),
-            nn.GELU(),
-            nn.Linear(embedding_dim // 2, embedding_dim // 2),
+        self.time_embed = TimeEmbedding(time_embed_dim)
+
+        # 条件嵌入
+        self.label_embed = LabelEmbedding(num_classes, label_embed_dim)
+
+        # 融合MLP
+        self.mlp = nn.Sequential(
+            nn.Linear(time_embed_dim + label_embed_dim, 4 * output_dim),
+            nn.SiLU(),
+            nn.Linear(4 * output_dim, output_dim),
+            nn.SiLU(),
         )
 
-        # 类别嵌入
-        self.class_embedding = nn.Embedding(num_classes, embedding_dim // 2)
+    def forward(self, x, time, label):
 
-    def forward(self, t, class_label):
-        # 时间步嵌入 (B, D_time)
-        t_emb = self.time_embedding(t)
-
-        # 类别嵌入 (B, D_class)
-        c_emb = self.class_embedding(class_label)
-
-        cond_emb = torch.cat([t_emb, c_emb], dim=-1)
-
-        return cond_emb
+        time_emb = self.time_embed(time)
+        label_emb = self.label_embed(label)
+        combined = torch.cat([time_emb, label_emb], dim=-1)
+        out = self.mlp(combined)
+        return out
 
 
 class ConvBlock(nn.Module):

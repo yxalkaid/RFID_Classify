@@ -1,14 +1,22 @@
-from model.ClassifyNet import ClassifyNet
+from model.UNet import UNet
+from model.Scheduler import LinearBetaScheduler
+from model.CD_Model import CD_Model
+
+model = CD_Model(
+    unet=UNet(),
+    scheduler=LinearBetaScheduler(),
+)
+
 import torch
-import numpy as np
 
+batch_size = 2
+xt = torch.randn(batch_size, 3, 64, 12)
+time = torch.randint(0, 1000, (batch_size,))
+condition = torch.randint(0, 6, (batch_size,))
+out = model(
+    x=xt,
+    time=time,
+    condition=condition,
+)
 
-input_shape = (3, 64, 12)
-
-x = torch.randn(1, *input_shape)
-model = ClassifyNet()
-
-out_data = model(x)
-print(type(out_data))
-print(out_data.shape)
-print(out_data)
+print(out.shape)

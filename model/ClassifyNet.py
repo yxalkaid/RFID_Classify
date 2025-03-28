@@ -7,7 +7,7 @@ class ClassifyNet(nn.Module):
     分类网络
     """
 
-    def __init__(self, input_shape=(3, 30, 12), num_classes=6):
+    def __init__(self, input_shape=(3, 64, 12), num_classes=6):
         super().__init__()
 
         self.layers = nn.ModuleList()
