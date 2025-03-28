@@ -3,7 +3,7 @@ import torch
 import numpy as np
 
 
-input_shape = (3, 30, 12)
+input_shape = (3, 64, 12)
 
 x = torch.randn(1, *input_shape)
 model = SimpleNet()
