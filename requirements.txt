@@ -1,0 +1,23 @@
+colorama==0.4.6
+contourpy==1.3.1
+cycler==0.12.1
+filelock==3.18.0
+fonttools==4.56.0
+fsspec==2025.3.0
+Jinja2==3.1.6
+kiwisolver==1.4.8
+MarkupSafe==3.0.2
+matplotlib==3.10.1
+mpmath==1.3.0
+networkx==3.4.2
+numpy==2.2.4
+packaging==24.2
+pillow==11.1.0
+pyparsing==3.2.3
+python-dateutil==2.9.0.post0
+setuptools==78.1.0
+six==1.17.0
+sympy==1.13.1
+torch @ file:///D:/Downloads/torch-2.5.1%2Bcu124-cp312-cp312-win_amd64.whl#sha256=3c3f705fb125edbd77f9579fa11a138c56af8968a10fc95834cdd9fdf4f1f1a6
+tqdm==4.67.1
+typing_extensions==4.13.0
