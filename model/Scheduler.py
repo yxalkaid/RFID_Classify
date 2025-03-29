@@ -34,6 +34,18 @@ class LinearBetaScheduler:
         # σ_t = sqrt(β_t)，反向过程噪声标准差
         self.sigmas = torch.sqrt(self.betas)
 
+    def to_device(self, device):
+        """
+        将调度器参数移动到指定设备
+        """
+        for attr in self.__dict__:
+            if torch.is_tensor(getattr(self, attr)):
+                setattr(self, attr, getattr(self, attr).to(device))
+            elif isinstance(getattr(self, attr), list):
+                for i, item in enumerate(getattr(self, attr)):
+                    if torch.is_tensor(item):
+                        setattr(self, attr, getattr(self, attr)[i].to(device))
+
     def forward_process(self, x0, t, noise=None):
         """
         正向加噪过程
@@ -43,7 +55,6 @@ class LinearBetaScheduler:
             noise = torch.randn_like(x0)
 
         sqrt_alpha = self.sqrt_alphas_cumprod[t].view(-1, 1, 1, 1).to(x0.device)
-        print(sqrt_alpha)
         sqrt_one_minus_alpha = (
             self.sqrt_one_minus_alphas_cumprod[t].view(-1, 1, 1, 1).to(x0.device)
         )
@@ -84,10 +95,11 @@ class LinearBetaScheduler:
 
         # 噪声项添加
         # 公式：x_{t-1} = μ_θ + σ_t * z
-        if add_noise and t > 1:
+        if add_noise:
             noise = torch.randn_like(xt)
-            x_prev = mean + sigma_t * noise
+            mask = (t > 1).view(-1, 1, 1, 1)
+            x_prev = torch.where(mask, mean + sigma_t * noise, mean)
         else:
-            x_prev = mean  # 不添加噪声
+            x_prev = mean
 
         return x_prev

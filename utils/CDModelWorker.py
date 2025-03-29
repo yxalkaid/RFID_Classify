@@ -1,13 +1,13 @@
 import torch
-from torch import nn
+from torch.nn import Module
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from .model.CD_Model import CD_Model
+import os
 
 
-class ModelUtils:
-    def __init__(self, model: CD_Model):
+class CDModelWorker:
+    def __init__(self, model: Module):
         self.model = model
 
     def train(
@@ -21,6 +21,7 @@ class ModelUtils:
         self.model.train()
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(device)
+        self.model.scheduler.to_device(device)
 
         print(f"Model will be trained on {device}")
         print(" = " * 30)
@@ -70,6 +71,7 @@ class ModelUtils:
         self.model.eval()
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(device)
+        self.model.scheduler.to_device(device)
 
         print(f"Model will be evaluated on {device}")
         print(" = " * 30)
@@ -113,3 +115,37 @@ class ModelUtils:
         eval_loss = eval_loss / len(eval_loader.dataset)
 
         print(f"Eval samples:{len(eval_loader.dataset)}, Eval Loss: {eval_loss:.4f}")
+
+    def save(self, save_path: str):
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        torch.save(self.model.state_dict(), save_path)
+
+    def load(self, load_path: str):
+        self.model.load_state_dict(torch.load(load_path, weights_only=True))
+
+    def generate_sample(self, condition: int, time: int, count: int = 1):
+        # 设置模型为评估模式
+        self.model.eval()
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model.to(device)
+        self.model.scheduler.to_device(device)
+
+        c = torch.tensor([condition] * count, device=device)
+        with torch.no_grad():
+            progress = tqdm(
+                reversed(range(0, time)),
+                desc="Sampling",
+                unit="step",
+                total=time,
+            )
+            x = torch.randn(count, *(self.model.shape), device=device)
+            for t in progress:
+                now_t = torch.tensor([t] * count, device=device)
+                prev_noise = self.model(x=x, time=now_t, condition=c)
+                x = self.model.scheduler.reverse_process_step(
+                    xt=x,
+                    t=now_t,
+                    prev_noise=prev_noise,
+                    add_noise=True,
+                )
+        return x
