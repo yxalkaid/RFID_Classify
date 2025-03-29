@@ -1,5 +1,5 @@
 from model.UNet import UNet
-from model.Scheduler import LinearBetaScheduler
+from model.BetaScheduler import LinearBetaScheduler
 from model.CD_Model import CD_Model
 
 model = CD_Model(

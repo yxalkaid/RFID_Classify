@@ -1,85 +1,48 @@
 import torch
 from torch import nn
 
-import math
 
-
-class TimeEmbedding(nn.Module):
+class DownSample(nn.Module):
     """
-    时间步嵌入
+    下采样块
     """
 
-    def __init__(self, embedding_dim):
-        super().__init__()
-        self.embedding_dim = embedding_dim
-
-        half_dim = embedding_dim // 2
-        div_term = torch.exp(
-            torch.arange(half_dim, dtype=torch.float32)
-            * (-math.log(10000.0) / half_dim)
-        )
-        self.register_buffer("div_term", div_term)
-
-    def forward(self, t):
-        t = t.float()
-
-        phase = t.view(-1, 1) * self.div_term.view(1, -1) * 2 * torch.pi
-
-        # 构建正弦余弦嵌入
-        embedding = torch.zeros(t.size(0), self.embedding_dim, device=t.device)
-        embedding[:, ::2] = torch.sin(phase)  # 偶数位置
-        embedding[:, 1::2] = torch.cos(phase)  # 奇数位置
-        return embedding
-
-
-class LabelEmbedding(nn.Module):
-    """
-    条件嵌入模块
-    """
-
-    def __init__(self, num_classes, embedding_dim):
-        super().__init__()
-        self.class_embedding = nn.Embedding(num_classes, embedding_dim)
-
-    def forward(self, x) -> torch.Tensor:
-        x = self.class_embedding(x.long())
-        return x
-
-
-class EmbeddingBlock(nn.Module):
-    """
-    融合嵌入
-    """
-
-    def __init__(
-        self,
-        time_embed_dim: int = 64,
-        label_embed_dim: int = 64,
-        num_classes: int = 6,
-        output_dim: int = 128,
-    ):
+    def __init__(self, in_channels, out_channels, embed_dim=128):
         super().__init__()
 
-        # 时间步嵌入
-        self.time_embed = TimeEmbedding(time_embed_dim)
+        self.down = nn.MaxPool2d(2, 2)
+        self.res = ResidualBlock(in_channels, out_channels, embed_dim)
+        self.conv = ConvBlock(out_channels, out_channels)
+        self.atten = SelfAttention(out_channels)
 
-        # 条件嵌入
-        self.label_embed = LabelEmbedding(num_classes, label_embed_dim)
+    def forward(self, x, embed):
+        a = self.down(x)
+        b = self.res(a, embed)
+        b = self.conv(b)
+        b = self.atten(b)
+        return a, b
 
-        # 融合MLP
-        self.mlp = nn.Sequential(
-            nn.Linear(time_embed_dim + label_embed_dim, 4 * output_dim),
-            nn.SiLU(),
-            nn.Linear(4 * output_dim, output_dim),
-            nn.SiLU(),
-        )
 
-    def forward(self, x, time, label):
+class UpSample(nn.Module):
+    """
+    上采样块
+    """
 
-        time_emb = self.time_embed(time)
-        label_emb = self.label_embed(label)
-        combined = torch.cat([time_emb, label_emb], dim=-1)
-        out = self.mlp(combined)
+    def __init__(self, in_channels, out_channels, embed_dim=128):
+        super().__init__()
+        self.up = nn.ConvTranspose2d(in_channels, out_channels, kernel_size=2, stride=2)
+        self.res = ResidualBlock(in_channels, out_channels, embed_dim)
+        self.conv = ConvBlock(out_channels, out_channels)
+        self.atten = SelfAttention(out_channels)
+
+    def forward(self, x, embed, skip=None):
+        x = self.up(x)
+        print(x.shape)
+        print(skip.shape)
+        x = torch.cat([x, skip], dim=1)
+        out = self.res(x, embed)
+        out = self.conv(out)
+        out = self.atten(out)
         return out
 
 
@@ -88,42 +51,50 @@ class ConvBlock(nn.Module):
     卷积块
     """
 
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels, out_channels, num_groups=32):
         super().__init__()
-        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
-        self.gelu = nn.GELU()
-        self.gn1 = nn.GroupNorm(32, out_channels)
-        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1)
-        self.gn2 = nn.GroupNorm(32, out_channels)
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+            nn.GELU(),
+            nn.GroupNorm(num_groups, out_channels),
+            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
+            nn.GroupNorm(num_groups, out_channels),
+        )
 
     def forward(self, x):
-        x = self.conv1(x)
-        x = self.gelu(x)
-        x = self.gn1(x)
-        x = self.conv2(x)
-        x = self.gn2(x)
+        x = self.conv(x)
         return x
 
 
-class ResBlock(nn.Module):
+class ResidualBlock(nn.Module):
     """
     残差块
     """
 
-    def __init__(self, in_channels, out_channels):
+    # TODO: 残差块的实现
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        embed_dim=128,
+    ):
         super().__init__()
-        self.conv_block = ConvBlock(in_channels, out_channels)
-        self.shortcut = (
+        self.norm1 = nn.GroupNorm(32, in_channels)
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
+        self.norm2 = nn.GroupNorm(32, out_channels)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1)
+        self.residual_conv = (
             nn.Conv2d(in_channels, out_channels, kernel_size=1)
             if in_channels != out_channels
             else nn.Identity()
         )
 
-    def forward(self, x):
-        residual = self.shortcut(x)
-        x = self.conv_block(x)
-        x += residual
-        return x
+    def forward(self, x, embed):
+        embed = embed.unsqueeze(-1).unsqueeze(-1)
+        h = x + embed
+        out = self.conv_block(h)
+        out = out + x
+        return out
 
 
 class SelfAttention(nn.Module):

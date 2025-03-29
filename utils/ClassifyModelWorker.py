@@ -1,6 +1,6 @@
 import torch
 from torch.utils.data import DataLoader
-from torch.nn import Module
+from torch import nn
 from tqdm import tqdm
 
 import os
@@ -9,8 +9,11 @@ from .WorkLogger import WorkLogger
 
 
 class ClassifyModelWorker:
+    """
+    分类模型工作器
+    """
 
-    def __init__(self, model: Module):
+    def __init__(self, model: nn.Module):
         self.model = model
 
     def train(
@@ -22,50 +25,30 @@ class ClassifyModelWorker:
         epochs=5,
     ):
         """
-        model_train 多分类模型训练
-
-        Parameters
-        ----------
-        model : nn.Module
-            torch模型
-        criterion :
-            损失函数
-        optimizer :
-            优化器
-        train_loader : torch.utils.data.DataLoader
-            训练集加载器
-        eval_loader : torch.utils.data.DataLoader, optional
-            评估集加载器, by default None
-        epochs : int, optional
-            _轮次, by default 10
-
-        Returns
-        -------
-        torch.nn.Module
-            模型
+        模型训练
         """
 
+        # 设置模型为训练模式
+        self.model.train()
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(device)
+
         print(f"Model will be trained on {device}")
-        print("-" * 30)
+        print("=" * 30)
 
         logger = WorkLogger()
         for epoch in range(epochs):
 
-            # 训练
-            self.model.train()
             running_loss = 0.0
             running_corrects = 0
 
-            print(f"Epoch [{epoch+1}/{epochs}] Train begin...")
+            print(f"Epoch [{epoch+1}/{epochs}] begin...")
             # 设置进度条
             train_progress = tqdm(
                 train_loader,
                 desc="Training",
                 unit="step",
                 total=len(train_loader),
-                mininterval=0.5,
             )
             for inputs, labels in train_progress:
                 inputs, labels = inputs.to(device), labels.to(device)
@@ -94,83 +77,28 @@ class ClassifyModelWorker:
                 # 更新进度条
                 batch_acc = batch_corrects.double() / inputs.size(0)
                 train_progress.set_postfix(loss=loss.item(), acc=batch_acc.item())
+            train_progress.close()
 
             # 计算平均损失和正确率
             train_loss = running_loss / len(train_loader.dataset)
             train_acc = running_corrects.double().item() / len(train_loader.dataset)
+
+            print(f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}")
+
             logger.add_train_log(epoch + 1, train_loss, train_acc)
 
-            # 评估
-            eval_loss = 0.0
-            eval_corrects = 0
             if eval_loader is not None:
-
-                self.model.eval()
-                with torch.no_grad():
-
-                    print(f"Epoch [{epoch+1}/{epochs}] Eval begin...")
-                    # 设置评估进度条
-                    eval_progress = tqdm(
-                        eval_loader,
-                        desc=f"Evaluating",
-                        unit="step",
-                        total=len(eval_loader),
-                        mininterval=0.5,
-                    )
-                    for inputs, labels in eval_progress:
-                        inputs, labels = inputs.to(device), labels.to(device)
-
-                        # 前向传播
-                        outputs = self.model(inputs)
-
-                        # 获取预测结果
-                        _, preds = torch.max(outputs, 1)
-
-                        # 计算损失
-                        loss = criterion(outputs, labels)
-
-                        # 累加该批次损失和正确率
-                        eval_loss += loss.item() * inputs.size(0)
-                        batch_corrects = torch.sum(preds == labels.data)
-                        eval_corrects += batch_corrects
-
-                        # 更新进度条
-                        batch_acc = batch_corrects.double() / inputs.size(0)
-                        eval_progress.set_postfix(
-                            loss=loss.item(), acc=batch_acc.item()
-                        )
-
-                eval_loss = eval_loss / len(eval_loader.dataset)
-                eval_acc = eval_corrects.double().item() / len(eval_loader.dataset)
+                eval_loss, eval_acc = self.evaluate(eval_loader, criterion)
                 logger.add_eval_log(epoch + 1, eval_loss, eval_acc)
 
-            # 打印当前批次结果
             print(f"Epoch [{epoch + 1}/{epochs}] finish")
-            print(f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}")
-            if eval_loader is not None:
-                print(f"Eval Loss: {eval_loss:.4f}, Eval Acc: {eval_acc:.4f}")
-            print("-" * 30)
+            print("=" * 30)
 
         return logger
 
-    def evaluate(self, eval_loader: DataLoader, criterion=None):
+    def evaluate(self, eval_loader: DataLoader, criterion):
         """
-        model_evaluate 多分类模型评估
-
-        Parameters
-        ----------
-        model : torch.nn.Module
-            torch模型
-        eval_loader : torch.utils.data.DataLoader
-            评估集加载器
-        criterion : optional
-            损失函数, by default None
-
-        Returns
-        -------
-        (float, float)
-            (准确率,损失)
-            criterion为None时，损失返回为0
+        模型评估
         """
 
         # 设置模型为评估模式
@@ -178,13 +106,10 @@ class ClassifyModelWorker:
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(device)
-        print(f"Model will be evaluated on {device}")
 
-        # 初始化准确率和样本总数
-        eval_loss = 0.0
-        eval_corrects = 0
+        running_loss = 0.0
+        running_corrects = 0
 
-        print("Eval begin...")
         # 禁用梯度计算
         with torch.no_grad():
 
@@ -193,7 +118,6 @@ class ClassifyModelWorker:
                 desc="Evaluating",
                 unit="step",
                 total=len(eval_loader),
-                mininterval=0.5,
             )
             for inputs, labels in eval_progress:
 
@@ -205,36 +129,29 @@ class ClassifyModelWorker:
                 # 获取预测结果
                 _, preds = torch.max(outputs, 1)
 
-                loss = 0
-                if criterion is not None:
-                    # 计算损失
-                    loss = criterion(outputs, labels)
+                # 计算损失
+                loss = criterion(outputs, labels)
 
-                    # 累加该批次损失和正确率
-                    eval_loss += loss.item() * inputs.size(0)
+                # 累加该批次损失和正确率
+                running_loss += loss.item() * inputs.size(0)
 
                 batch_corrects = torch.sum(preds == labels.data)
-                eval_corrects += batch_corrects
+                running_corrects += batch_corrects
 
                 # 更新进度条
                 batch_acc = batch_corrects.double() / inputs.size(0)
-                if criterion is not None:
-                    eval_progress.set_postfix(loss=loss.item(), acc=batch_acc.item())
-                else:
-                    eval_progress.set_postfix(acc=batch_acc.item())
+                eval_progress.set_postfix(loss=loss.item(), acc=batch_acc.item())
 
-        if criterion is not None:
-            eval_loss = eval_loss / len(eval_loader.dataset)
-        eval_acc = eval_corrects.double().item() / len(eval_loader.dataset)
+            eval_progress.close()
 
-        if criterion is not None:
-            print(
-                f"Eval samples:{len(eval_loader.dataset)}, Eval Loss: {eval_loss:.4f}, Eval Acc: {eval_acc:.4f}"
-            )
-        else:
-            print(f"Eval samples:{len(eval_loader.dataset)}, Eval Acc: {eval_acc:.4f}")
+        eval_loss = running_loss / len(eval_loader.dataset)
+        eval_acc = running_corrects.double().item() / len(eval_loader.dataset)
 
-        return eval_acc, eval_loss
+        print(
+            f"Eval samples:{len(eval_loader.dataset)}, Eval Loss: {eval_loss:.4f}, Eval Acc: {eval_acc:.4f}"
+        )
+
+        return eval_loss, eval_acc
 
     def predict(
         self,
@@ -242,23 +159,7 @@ class ClassifyModelWorker:
         labels=None,
     ):
         """
-        model_predict 多分类模型预测
-
-        Parameters
-        ----------
-        model : torch.nn.Module
-            torch模型
-        inputs : torch.Tensor
-            输入数据,
-        labels : torch.Tensor, optional
-            标签数据,default=None
-
-        Returns
-        -------
-        (Tensor,float)
-            (preds,acc)
-            preds 预测结果
-            acc 准确率,labels为None时为-1
+        模型预测
         """
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

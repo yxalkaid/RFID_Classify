@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 
+from .EmbeddingBlock import *
 from .Block import *
 
 
@@ -12,96 +13,61 @@ class UNet(nn.Module):
     def __init__(
         self,
         input_shape=(3, 64, 12),
-        out_channels=3,
         init_features=64,
-        embedding_dim=128,
         num_classes=6,
+        embed_dim=128,
     ):
         super().__init__()
 
         self.shape = input_shape
         in_channels = input_shape[0]
+        out_channels = input_shape[0]
         features = init_features
 
-        # Embeddings
-        self.embedding = EmbeddingBlock(
-            time_embed_dim=embedding_dim // 2,
-            label_embed_dim=embedding_dim // 2,
-            num_classes=num_classes,
-            output_dim=embedding_dim,
-        )
+        # 嵌入层
+        self.embedder = EmbeddingBlock(embed_dim, embed_dim, num_classes)
 
-        # Encoder
-        self.encoder1 = ConvBlock(in_channels, features)
-        self.pool1 = nn.MaxPool2d(2, 2)
+        # 首卷积
+        self.head = ConvBlock(in_channels, features)
 
-        self.encoder2 = nn.Sequential(
-            ResBlock(features, features * 2),
-            ConvBlock(features * 2, features * 2),
-            SelfAttention(features * 2),
-        )
-        self.pool2 = nn.MaxPool2d(2, 2)
+        # 编码器
+        self.encoder01 = DownSample(features, features * 2, embed_dim)
+        self.encoder02 = DownSample(features * 2, features * 4, embed_dim)
 
-        self.encoder3 = nn.Sequential(
-            ResBlock(features * 2, features * 4),
-            ConvBlock(features * 4, features * 4),
-            SelfAttention(features * 4),
-        )
-
-        # Bottleneck
+        # 中间瓶颈层
         self.bottleneck = nn.Sequential(
             ConvBlock(features * 4, features * 4),
             ConvBlock(features * 4, features * 4),
             ConvBlock(features * 4, features * 4),
         )
 
-        # Decoder
-        self.upconv2 = nn.ConvTranspose2d(
-            features * 4, features * 2, kernel_size=2, stride=2
-        )
-        self.decoder2 = nn.Sequential(
-            ResBlock(features * 4, features * 2),
-            ConvBlock(features * 2, features * 2),
-            SelfAttention(features * 2),
-        )
+        # 解码器
+        self.decoder02 = UpSample(features * 4, features * 2, embed_dim)
+        self.decoder01 = UpSample(features * 2, features, embed_dim)
 
-        self.upconv1 = nn.ConvTranspose2d(
-            features * 2, features, kernel_size=2, stride=2
-        )
-        self.decoder1 = nn.Sequential(
-            ResBlock(features * 2, features),
-            ConvBlock(features, features),
-            SelfAttention(features),
-        )
-
-        # Output layer
-        self.conv = nn.Conv2d(features, out_channels, kernel_size=1)
+        # 尾卷积
+        self.tail = nn.Conv2d(features, out_channels, kernel_size=3, padding=1)
 
     def forward(self, x, time, condition):
 
-        cond_emb = self.embedding(x, time, condition)
+        # 生成联合嵌入
+        embed = self.embedder(time, condition)  # [B, embed_dim]
 
-        # Encoder path
-        enc1 = self.encoder1(x)
+        # 初始卷积
+        x = self.head(x)
 
-        # TODO: 尚未完成条件融合
-        # # enc1 = self.apply_conditioning(enc1, cond_emb)  # 条件融合
+        # 编码器路径
+        x, skip1 = self.encoder01(x, embed)
+        x, skip2 = self.encoder02(x, embed)
 
-        enc2 = self.encoder2(self.pool1(enc1))
-        enc3 = self.encoder3(self.pool2(enc2))
+        # 中间层
+        x = self.bottleneck(x)
 
-        # Bottleneck
-        bottleneck = self.bottleneck(enc3)
+        # 解码器路径
+        x = self.decoder02(x, skip2, embed)
+        x = self.encoder01(x, skip1, embed)
 
-        # Decoder path
-        dec2 = self.upconv2(bottleneck)
-        dec2 = torch.cat([dec2, enc2], dim=1)  # 跳跃连接
-        dec2 = self.decoder2(dec2)
+        # 最终卷积
+        out = self.tail(x)
 
-        dec1 = self.upconv1(dec2)
-        dec1 = torch.cat([dec1, enc1], dim=1)  # 跳跃连接
-        dec1 = self.decoder1(dec1)
-
-        # Output
-        output = self.conv(dec1)
-        return output
+        return out

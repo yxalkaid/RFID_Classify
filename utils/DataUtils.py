@@ -10,17 +10,7 @@ class DataUtils:
 
     def get_data_shape(self, used_dataset: Dataset):
         """
-        get_data_shape 获取数据集中第一个样例的shape
-
-        Parameters
-        ----------
-        used_dataset : torch.utils.data.Dataset
-            数据集
-
-        Returns
-        -------
-        tuple
-            shape
+        获取数据集中第一个样例的shape
         """
 
         if used_dataset is None or len(used_dataset) <= 0:
@@ -38,22 +28,9 @@ class DataUtils:
         count=1,
     ):
         """
-        select_simple 随机挑选数据集的一批样例
-
-        Parameters
-        ----------
-        used_dataset : torch.utils.data.Dataset
-            数据集
-        count : int, optional
-            挑选的样例数,default=1
-
-        Returns
-        -------
-        (Tensor,Tensor, Tensor)
-            indexs, torch.Tensor
-            datas, torch.Tensor
-            labels, torch.Tensor
+        随机挑选数据集的一批样例
         """
+
         if used_dataset is None or count <= 0:
             return None
 
@@ -82,16 +59,7 @@ class DataUtils:
         with_title=True,
     ):
         """
-        show_image_batch 展示一批图片
-
-        Parameters
-        ----------
-        inputs : torch.Tensor
-            图片数据,形状为(N,C,H,W)，N为图片数量，C为通道数，H为高度，W为宽度
-        cmap : str, optional
-            plt.imshow的cmap参数, by default "gray"
-        with_title: bool, optional
-            是否显示标题,default=True
+        展示一批图片
         """
 
         if inputs is None:
@@ -124,16 +92,7 @@ class DataUtils:
         callback: Callable = None,
     ):
         """
-        show_image_simple 随机查看图片数据集的样例
-
-        Parameters
-        ----------
-        used_dataset : torch.utils.data.Dataset
-            数据集
-        count : int, optional
-            查看的样例数,default=1
-        callback : _Callable_, optional
-            回调函数,参数列表(index,image,label),default=None
+        随机查看图片数据集的样例
         """
 
         if used_dataset is None or count <= 0:

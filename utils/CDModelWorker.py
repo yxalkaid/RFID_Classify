@@ -1,5 +1,5 @@
 import torch
-from torch.nn import Module
+from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -7,7 +7,11 @@ import os
 
 
 class CDModelWorker:
-    def __init__(self, model: Module):
+    """
+    条件扩散模型工作器
+    """
+
+    def __init__(self, model: nn.Module):
         self.model = model
 
     def train(
@@ -15,20 +19,22 @@ class CDModelWorker:
         optimizer,
         criterion,
         train_loader: DataLoader,
+        eval_loader: DataLoader = None,
         epochs=5,
     ):
         # 设置模型为训练模式
         self.model.train()
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(device)
-        self.model.scheduler.to_device(device)
 
         print(f"Model will be trained on {device}")
-        print(" = " * 30)
+        print("=" * 30)
 
         for epoch in range(epochs):
 
-            print(f"Epoch [{epoch+1}/{epochs}] Train begin...")
+            running_loss = 0.0
+
+            print(f"Epoch [{epoch+1}/{epochs}] begin...")
 
             # 设置进度条
             train_progress = tqdm(
@@ -46,7 +52,7 @@ class CDModelWorker:
 
                 # 随机选择时间步
                 time = torch.randint(
-                    1, self.model.T, (batch_size,), device=device
+                    1, self.model.timesteps, (batch_size,), device=device
                 ).long()
 
                 # 正向过程
@@ -62,8 +68,22 @@ class CDModelWorker:
                 loss.backward()
                 optimizer.step()
 
+                running_loss += loss.item() * batch_size
+
                 # 更新进度条
                 train_progress.set_postfix(loss=loss.item())
+            train_progress.close()
+
+            # 计算平均损失和正确率
+            train_loss = running_loss / len(train_loader.dataset)
+
+            print(f"Train Loss: {train_loss:.4f}")
+
+            if eval_loader is not None:
+                eval_loss = self.evaluate(eval_loader, criterion)
+
+            print(f"Epoch [{epoch + 1}/{epochs}] finish")
+            print("=" * 30)
 
     def evaluate(self, eval_loader: DataLoader, criterion):
 
@@ -71,14 +91,9 @@ class CDModelWorker:
         self.model.eval()
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(device)
-        self.model.scheduler.to_device(device)
 
-        print(f"Model will be evaluated on {device}")
-        print(" = " * 30)
+        running_loss = 0.0
 
-        eval_loss = 0.0
-
-        print("Eval begin...")
         # 禁用梯度计算
         with torch.no_grad():
 
@@ -94,7 +109,7 @@ class CDModelWorker:
 
                 # 随机选择时间步
                 time = torch.randint(
-                    1, self.model.T, (batch_size,), device=device
+                    1, self.model.timesteps, (batch_size,), device=device
                 ).long()
 
                 # 正向过程
@@ -107,45 +122,50 @@ class CDModelWorker:
                 loss = criterion(pred_noise, noise)
 
                 # 累加损失
-                eval_loss += loss.item() * batch_size
+                running_loss += loss.item() * batch_size
 
                 # 更新进度条
                 eval_progress.set_postfix(loss=loss.item())
+            eval_progress.close()
 
-        eval_loss = eval_loss / len(eval_loader.dataset)
+        eval_loss = running_loss / len(eval_loader.dataset)
 
         print(f"Eval samples:{len(eval_loader.dataset)}, Eval Loss: {eval_loss:.4f}")
 
-    def save(self, save_path: str):
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        torch.save(self.model.state_dict(), save_path)
-
-    def load(self, load_path: str):
-        self.model.load_state_dict(torch.load(load_path, weights_only=True))
+        return eval_loss
 
     def generate_sample(self, condition: int, time: int, count: int = 1):
         # 设置模型为评估模式
         self.model.eval()
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(device)
-        self.model.scheduler.to_device(device)
 
         c = torch.tensor([condition] * count, device=device)
         with torch.no_grad():
             progress = tqdm(
-                reversed(range(0, time)),
+                reversed(range(1, time)),
                 desc="Sampling",
                 unit="step",
                 total=time,
             )
-            x = torch.randn(count, *(self.model.shape), device=device)
+            x = torch.randn(count, *(self.model.input_shape), device=device)
             for t in progress:
                 now_t = torch.tensor([t] * count, device=device)
                 prev_noise = self.model(x=x, time=now_t, condition=c)
-                x = self.model.scheduler.reverse_process_step(
+                x = self.model.reverse_process_step(
                     xt=x,
                     t=now_t,
                     prev_noise=prev_noise,
                     add_noise=True,
                 )
+            progress.close()
+
         return x
+
+    def save(self, save_path: str):
+        dir_name = os.path.dirname(save_path)
+        os.makedirs(dir_name, exist_ok=True)
+        torch.save(self.model.state_dict(), save_path)
+
+    def load(self, load_path: str):
+        self.model.load_state_dict(torch.load(load_path, weights_only=True))
