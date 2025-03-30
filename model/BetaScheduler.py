@@ -24,6 +24,7 @@ class LinearBetaScheduler(nn.Module):
 
         # ᾱ_t = α_1 * α_2 * ... * α_t
         alphas_bar = torch.cumprod(alphas, dim=0)
+        self.register_buffer("alphas_bar", alphas_bar)
 
         # sqrt(ᾱ_t)
         sqrt_alphas_bar = torch.sqrt(alphas_bar)
@@ -37,7 +38,7 @@ class LinearBetaScheduler(nn.Module):
         sqrt_recip_alphas = torch.sqrt(1.0 / alphas)
         self.register_buffer("sqrt_recip_alphas", sqrt_recip_alphas)
 
-        # σ_t = sqrt(β_t)
+        # σ_t
         sigmas = torch.sqrt(betas)
         self.register_buffer("sigmas", sigmas)
 
@@ -46,7 +47,12 @@ class LinearBetaScheduler(nn.Module):
         return res
 
     def get_sigma(self, t):
+        # TODO
         res = self.sigmas[t].view(-1, 1, 1, 1)
+        return res
+
+    def get_alpha_bar(self, t):
+        res = self.alphas_bar[t].view(-1, 1, 1, 1)
         return res
 
     def get_sqrt_alpha_bar(self, t):

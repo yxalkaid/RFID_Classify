@@ -135,13 +135,14 @@ class CDModelWorker:
         return eval_loss
 
     def generate_sample(
-        self, condition: int, time: int, count: int = 1, add_noise=True
+        self, count: int, condition: int, time: int = -1, add_noise=True
     ):
         # 设置模型为评估模式
         self.model.eval()
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(device)
 
+        time = time if time > 0 else self.model.timesteps
         c = torch.tensor([condition] * count, device=device)
         with torch.no_grad():
             progress = tqdm(
@@ -154,7 +155,7 @@ class CDModelWorker:
             for t in progress:
                 now_t = torch.tensor([t] * count, device=device)
                 prev_noise = self.model(x=x, time=now_t, condition=c)
-                x = self.model.reverse_process_step(
+                x = self.model.reverse_process_DDPM(
                     xt=x,
                     t=now_t,
                     prev_noise=prev_noise,
