@@ -16,6 +16,10 @@ data/
 # output
 output/
 
+# logs
+logs/
+runs/
+
 # C extensions
 *.so
 

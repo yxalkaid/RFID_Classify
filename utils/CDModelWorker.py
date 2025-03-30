@@ -134,7 +134,9 @@ class CDModelWorker:
 
         return eval_loss
 
-    def generate_sample(self, condition: int, time: int, count: int = 1):
+    def generate_sample(
+        self, condition: int, time: int, count: int = 1, add_noise=True
+    ):
         # 设置模型为评估模式
         self.model.eval()
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -146,7 +148,7 @@ class CDModelWorker:
                 reversed(range(1, time)),
                 desc="Sampling",
                 unit="step",
-                total=time,
+                total=time - 1,
             )
             x = torch.randn(count, *(self.model.input_shape), device=device)
             for t in progress:
@@ -156,7 +158,7 @@ class CDModelWorker:
                     xt=x,
                     t=now_t,
                     prev_noise=prev_noise,
-                    add_noise=True,
+                    add_noise=add_noise,
                 )
             progress.close()
 

@@ -1,11 +1,10 @@
 import torch
 from torch.utils.data import DataLoader
 from torch import nn
+from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 import os
-
-from .WorkLogger import WorkLogger
 
 
 class ClassifyModelWorker:
@@ -23,6 +22,7 @@ class ClassifyModelWorker:
         train_loader: DataLoader,
         eval_loader: DataLoader = None,
         epochs=5,
+        enable_board=False,
     ):
         """
         模型训练
@@ -36,7 +36,8 @@ class ClassifyModelWorker:
         print(f"Model will be trained on {device}")
         print("=" * 30)
 
-        logger = WorkLogger()
+        if enable_board:
+            logger = SummaryWriter()
         for epoch in range(epochs):
 
             running_loss = 0.0
@@ -85,16 +86,19 @@ class ClassifyModelWorker:
 
             print(f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}")
 
-            logger.add_train_log(epoch + 1, train_loss, train_acc)
+            if enable_board and logger:
+                logger.add_scalar("train/loss", train_loss, epoch + 1)
+                logger.add_scalar("train/acc", train_acc, epoch + 1)
 
             if eval_loader is not None:
                 eval_loss, eval_acc = self.evaluate(eval_loader, criterion)
-                logger.add_eval_log(epoch + 1, eval_loss, eval_acc)
+                if enable_board and logger:
+                    logger.add_scalar("eval/loss", eval_loss, epoch + 1)
+                    logger.add_scalar("eval/acc", eval_acc, epoch + 1)
 
             print(f"Epoch [{epoch + 1}/{epochs}] finish")
             print("=" * 30)
-
-        return logger
+        logger.close()
 
     def evaluate(self, eval_loader: DataLoader, criterion):
         """

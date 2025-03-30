@@ -1,4 +1,7 @@
+absl-py==2.2.1
 asttokens==3.0.0
+certifi==2025.1.31
+charset-normalizer==3.4.1
 colorama==0.4.6
 comm==0.2.2
 contourpy==1.3.1
@@ -9,6 +12,8 @@ executing==2.2.0
 filelock==3.18.0
 fonttools==4.56.0
 fsspec==2025.3.0
+grpcio==1.71.0
+idna==3.10
 ipykernel==6.29.5
 ipython==9.0.2
 ipython_pygments_lexers==1.1.1
@@ -17,6 +22,7 @@ Jinja2==3.1.6
 jupyter_client==8.6.3
 jupyter_core==5.7.2
 kiwisolver==1.4.8
+Markdown==3.7
 MarkupSafe==3.0.2
 matplotlib==3.10.1
 matplotlib-inline==0.1.7
@@ -25,25 +31,36 @@ nest-asyncio==1.6.0
 networkx==3.4.2
 numpy==2.2.4
 packaging==24.2
+pandas==2.2.3
 parso==0.8.4
 pillow==11.1.0
 platformdirs==4.3.7
 prompt_toolkit==3.0.50
+protobuf==6.30.2
 psutil==7.0.0
 pure_eval==0.2.3
 Pygments==2.19.1
 pyparsing==3.2.3
 python-dateutil==2.9.0.post0
+pytz==2025.2
 pywin32==310
 pyzmq==26.3.0
+requests==2.32.3
 setuptools==78.1.0
 six==1.17.0
 stack-data==0.6.3
 sympy==1.13.1
+tensorboard==2.19.0
+tensorboard-data-server==0.7.2
 torch @ file:///D:/Downloads/torch-2.5.1%2Bcu124-cp312-cp312-win_amd64.whl#sha256=3c3f705fb125edbd77f9579fa11a138c56af8968a10fc95834cdd9fdf4f1f1a6
+torch-tb-profiler==0.4.3
+torchkeras==4.0.4
 torchvision @ file:///D:/Downloads/torchvision-0.20.1%2Bcu124-cp312-cp312-win_amd64.whl#sha256=0f6c7b3b0e13663fb3359e64f3604c0ab74c2b4809ae6949ace5635a5240f0e5
 tornado==6.4.2
 tqdm==4.67.1
 traitlets==5.14.3
 typing_extensions==4.13.0
+tzdata==2025.2
+urllib3==2.3.0
 wcwidth==0.2.13
+Werkzeug==3.1.3

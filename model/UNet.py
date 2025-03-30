@@ -1,8 +1,8 @@
 import torch
 from torch import nn
 
-from .EmbeddingBlock import *
-from .Block import *
+from .EmbeddingBlock import EmbeddingBlock
+from .Block import ConvBlock, DownSample, UpSample
 
 
 class UNet(nn.Module):
@@ -28,7 +28,7 @@ class UNet(nn.Module):
         self.embedder = EmbeddingBlock(embed_dim, embed_dim, num_classes)
 
         # 首卷积
-        self.head = ConvBlock(in_channels, features)
+        self.head_conv = ConvBlock(in_channels, features)
 
         # 编码器
         self.encoder01 = DownSample(features, features * 2, embed_dim)
@@ -46,28 +46,28 @@ class UNet(nn.Module):
         self.decoder01 = UpSample(features * 2, features, embed_dim)
 
         # 尾卷积
-        self.tail = nn.Conv2d(features, out_channels, kernel_size=3, padding=1)
+        self.tail_conv = nn.Conv2d(features, out_channels, kernel_size=3, padding=1)
 
     def forward(self, x, time, condition):
 
         # 生成联合嵌入
-        embed = self.embedder(time, condition)  # [B, embed_dim]
+        embed = self.embedder(time, condition)
 
         # 初始卷积
-        x = self.head(x)
+        init_x = self.head_conv(x)
 
         # 编码器路径
-        x, skip1 = self.encoder01(x, embed)
-        x, skip2 = self.encoder02(x, embed)
+        enc01_x = self.encoder01(init_x, embed)
+        enc02_x = self.encoder02(enc01_x, embed)
 
-        # 中间层
-        x = self.bottleneck(x)
+        # 中间瓶颈层
+        bot_x = self.bottleneck(enc02_x)
 
         # 解码器路径
-        x = self.decoder02(x, skip2, embed)
-        x = self.encoder01(x, skip1, embed)
+        dec02_x = self.decoder02(bot_x, embed, enc01_x)
+        dec01_x = self.decoder01(dec02_x, embed, init_x)
 
         # 最终卷积
-        out = self.tail(x)
+        out = self.tail_conv(dec01_x)
 
         return out
