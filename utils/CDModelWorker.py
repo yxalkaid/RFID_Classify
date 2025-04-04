@@ -142,11 +142,11 @@ class CDModelWorker:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(device)
 
-        time = time if time > 0 else self.model.timesteps
+        time = time if time > 0 else self.model.timesteps - 1
         c = torch.tensor([condition] * count, device=device)
         with torch.no_grad():
             progress = tqdm(
-                reversed(range(1, time)),
+                reversed(range(1, time + 1)),
                 desc="Sampling",
                 unit="step",
                 total=time - 1,
@@ -157,7 +157,7 @@ class CDModelWorker:
                 prev_noise = self.model(x=x, time=now_t, condition=c)
                 x = self.model.reverse_process_DDPM(
                     xt=x,
-                    t=now_t,
+                    time=now_t,
                     prev_noise=prev_noise,
                     add_noise=add_noise,
                 )

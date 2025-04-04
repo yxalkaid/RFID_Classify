@@ -14,6 +14,7 @@ class RFID_Dataset(Dataset):
         self.data_path = data_path
         self.transform = transform
         self.data_group = []
+        # TODO
 
     def __getitem__(self, index):
         pass

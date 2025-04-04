@@ -140,22 +140,3 @@ class SelfAttention(nn.Module):
         attn_output, _ = self.mha(x, x, x)
         attn_output = attn_output.permute(0, 2, 1).view(B, C, H, W)
         return attn_output
-
-
-class EfficientAttention(nn.Module):
-    def __init__(self, in_channels, reduction=4, num_heads=4):
-        super().__init__()
-        self.reduction = reduction
-        self.pool = nn.AvgPool2d(kernel_size=reduction)
-        self.attn = nn.MultiheadAttention(embed_dim=in_channels, num_heads=num_heads)
-
-    def forward(self, x):
-        B, C, H, W = x.shape
-        x_down = self.pool(x)  # 下采样至 [B, C, H/r, W/r]
-        x_flat = x_down.view(B, C, -1).permute(2, 0, 1)  # [L_down, B, C]
-        attn_out, _ = self.attn(x_flat, x_flat, x_flat)
-        attn_out = attn_out.permute(1, 2, 0).view(
-            B, C, H // self.reduction, W // self.reduction
-        )
-        out = F.interpolate(attn_out, size=(H, W))
-        return out
