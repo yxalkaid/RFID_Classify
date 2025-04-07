@@ -99,6 +99,7 @@ class CD_Model(nn.Module):
         # ᾱ_s
         alpha_bar_prev = self.scheduler.get_alpha_bar(target_time)
 
+        # TODO: sigma计算方式与DDPM不同，需要修改调度器
         # σ_t
         sigma_t = self.scheduler.get_sigma(time) * eta
 

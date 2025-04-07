@@ -47,7 +47,6 @@ class LinearBetaScheduler(nn.Module):
         return res
 
     def get_sigma(self, t):
-        # TODO
         res = self.sigmas[t].view(-1, 1, 1, 1)
         return res
 
