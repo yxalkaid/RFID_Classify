@@ -6,7 +6,7 @@ import random
 from typing import Callable
 
 
-class DataUtils:
+class DatasetUtils:
 
     def get_data_shape(self, used_dataset: Dataset):
         """
