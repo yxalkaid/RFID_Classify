@@ -5,23 +5,6 @@ import numpy as np
 """
 
 
-def cal_phase_variation(data):
-    """
-    计算相位变化
-    """
-
-    shifted_data = np.concatenate([data[:, :1, :], data[:, :-1, :]], axis=1)
-
-    # 计算相位变化
-    phase_variation = data - shifted_data
-
-    # 校准相位变化，确保其在 [-2048, 2048] 范围内
-    phase_variation[phase_variation > 2048] -= 4096
-    phase_variation[phase_variation < -2048] += 4096
-
-    return phase_variation
-
-
 def downsample(data, step=50, drop_last=False):
     """
     数据下采样

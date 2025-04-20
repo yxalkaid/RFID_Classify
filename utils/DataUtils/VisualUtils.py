@@ -1,0 +1,87 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+
+
+def plot_phase_differ(csv_path, tag_name, limit=1000, offset=0, filter_zero=True):
+    """
+    绘制相位差值散点图
+    """
+
+    offset = max(0, offset)
+    limit = max(1, limit)
+    data = pd.read_csv(csv_path)[offset : offset + limit]
+
+    phases = data[tag_name]
+
+    # 过滤掉空数据
+    valid_indices = ~phases.isna()
+    if filter_zero:
+        valid_indices = valid_indices & (phases != 0)
+    valid_phases = phases[valid_indices]
+    valid_time_points = [
+        i for i in range(offset, offset + len(phases)) if valid_indices[i]
+    ]
+    valid_count = len(valid_phases)
+
+    # 创建散点图
+    plt.figure(figsize=(10, 6))
+    plt.scatter(valid_time_points, valid_phases, marker="o")
+
+    # 设置图形标题和坐标轴标签
+    plt.title(f"Phase Differences Of Tag {tag_name}, Valid Points: {valid_count}")
+    plt.xlabel("Time Point")
+    plt.ylabel("Phase Difference")
+    plt.grid(True)
+
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_phase(csv_path, tag_name, limit=1000, offset=0):
+    """
+    绘制相位散点图
+    """
+
+    offset = max(0, offset)
+    limit = max(1, limit)
+    data = pd.read_csv(csv_path)[offset : offset + limit]
+
+    phases = data[tag_name]
+    channels = data[f"{tag_name}-channel"]
+
+    # 过滤掉空数据
+    valid_indices = ~phases.isna()
+    valid_phases = phases[valid_indices]
+    valid_channels = channels[valid_indices]
+    valid_time_points = [
+        i for i in range(offset, offset + len(phases)) if valid_indices[i]
+    ]
+    valid_count = len(valid_phases)
+
+    # 定义颜色映射
+    unique_channels = sorted(valid_channels.unique())
+    colors = plt.cm.tab10([int(i) % 10 for i in unique_channels])
+
+    # 创建散点图
+    plt.figure(figsize=(10, 6))
+    for i, channel in enumerate(unique_channels):
+        channel_indices = valid_channels == channel
+        plt.scatter(
+            [
+                valid_time_points[j]
+                for j in range(len(valid_time_points))
+                if channel_indices.iloc[j]
+            ],
+            valid_phases[channel_indices],
+            color=colors[i],
+            label=f"Channel {int(channel)}",
+        )
+
+    # 设置图形标题和坐标轴标签
+    plt.title(f"Phase Values Of Tag {tag_name}, Valid Points: {valid_count}")
+    plt.xlabel("Time Point")
+    plt.ylabel("Phase Value (0-4096)")
+    plt.grid(True)
+
+    plt.tight_layout()
+    plt.show()
