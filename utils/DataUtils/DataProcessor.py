@@ -115,36 +115,45 @@ class DataProcessor:
         """
         将原始数据扩展为包含相位值和通道信息的表格形式
         """
-
         if suffix_len <= 0:
             suffix_len = 4
 
-        # 标准化列名
+        # 构建tags映射关系
         tags_map = {v: v[-suffix_len:] for v in tags.values()}
 
-        # 构建新列头
+        # 过滤有效数据
+        valid_ids = tags_map.keys()
+        df_filtered = df[df["id"].isin(valid_ids)].copy()
+
+        # 使用数据透视表处理重复值（保留首次出现）
+        pivot_phase = df_filtered.pivot_table(
+            index="time",
+            columns="id",
+            values="phase",
+            aggfunc="first",
+        )
+
+        pivot_channel = df_filtered.pivot_table(
+            index="time",
+            columns="id",
+            values="channel",
+            aggfunc="first",
+        )
+
+        # 重命名列名并合并
+        pivot_phase.columns = [tags_map[col] for col in pivot_phase.columns]
+        pivot_channel.columns = [
+            f"{tags_map[col]}-channel" for col in pivot_channel.columns
+        ]
+        merged_df = pd.concat([pivot_phase, pivot_channel], axis=1).reset_index()
+
+        # 构建标准列顺序
         new_columns = ["time"]
         for tag in tags_map.values():
-            new_columns.append(tag)
-            new_columns.append(f"{tag}-channel")
+            new_columns.extend([tag, f"{tag}-channel"])
+        merged_df = merged_df.reindex(columns=new_columns)
 
-        # 创建新结构
-        new_data = []
-        for _, row in df.iterrows():
-            time = row["time"]
-            id_val = row["id"]
-            phase = row["phase"]
-            channel = row["channel"]
-
-            if id_val in tags_map:
-                new_row = {"time": time}
-                target = tags_map[id_val]
-                new_row[target] = phase
-                new_row[f"{target}-channel"] = channel
-                new_data.append(new_row)
-
-        new_df = pd.DataFrame(new_data, columns=new_columns)
-        return new_df
+        return merged_df
 
     def convert_to_relative_time(self, df: pd.DataFrame) -> pd.DataFrame:
         """
