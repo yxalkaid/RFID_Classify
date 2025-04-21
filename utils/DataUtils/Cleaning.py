@@ -2,9 +2,9 @@ import pandas as pd
 import os
 
 
-class DataProcessor:
+class DataCleaning:
     """
-    数据处理
+    数据清洗
     """
 
     def batch_process(self, input_dir: str, output_dir: str, tags: dict, suffix_len=4):
@@ -37,7 +37,7 @@ class DataProcessor:
         df = self.data_fill(df)
         df = self.cal_phase_difference(df)
         df = self.filter_columns(df)
-        df = self.cal_time_difference(df)
+        df = self.to_relative_time(df)
 
         # 保存最终结果
         df.to_csv(output_path, index=False)
@@ -51,11 +51,47 @@ class DataProcessor:
         )
         return df
 
-    def save_data(self, df: pd.DataFrame, output_path: str):
+    def load_data(self, input_path: str):
+        """
+        加载数据
+        """
+        df = pd.read_csv(input_path)
+        return df
+
+    def save_data(
+        self, df: pd.DataFrame, output_path: str, include_header: bool = True
+    ):
         """
         保存数据
         """
-        df.to_csv(output_path, index=False)
+        df.to_csv(output_path, index=False, header=include_header)
+
+    def discard_boundary_data(
+        self, df: pd.DataFrame, head_sec: float = 0, tail_sec: float = 0
+    ) -> pd.DataFrame:
+        """
+        丢弃边界数据
+        """
+        head_sec = max(0, head_sec)
+        tail_sec = max(0, tail_sec)
+
+        # 转换时间列为datetime类型"
+        df["time"] = pd.to_datetime(df["time"])
+
+        # 获取原始时间范围
+        start_time = df["time"].iloc[0]
+        end_time = df["time"].iloc[-1]
+
+        # 计算新的时间边界
+        new_start = start_time + pd.Timedelta(seconds=head_sec)
+        new_end = end_time - pd.Timedelta(seconds=tail_sec)
+
+        if new_start >= new_end:
+            raise ValueError("新的时间范围无效")
+
+        # 过滤数据
+        mask = (df["time"] >= new_start) & (df["time"] <= new_end)
+        return df[mask]
 
     def data_transform(
         self, df: pd.DataFrame, tags: dict, suffix_len=4
@@ -137,10 +173,12 @@ class DataProcessor:
         keep_cols = [col for col in df.columns if not col.endswith("-channel")]
         return df[keep_cols]
 
-    def cal_time_difference(self, df: pd.DataFrame) -> pd.DataFrame:
+    def to_relative_time(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        计算时间差值
+        绝对时间转化为相对时间
         """
-        df["time"] = pd.to_datetime(df["time"], utc=True)
-        df["time"] = (df["time"].diff().dt.total_seconds() * 1e6).fillna(0).astype(int)
+        df["time"] = pd.to_datetime(df["time"])
+        start_time = df["time"].iloc[0]
+        delta = df["time"] - start_time
+        df["time"] = (delta.dt.total_seconds() * 1e6).astype(int)  # 转换为微秒
         return df
