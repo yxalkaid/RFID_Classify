@@ -1,0 +1,272 @@
+import pandas as pd
+import os
+
+
+class DataProcessor:
+    """
+    数据处理
+    """
+
+    def process_batch(self, input_dir: str, output_dir: str, tags: dict, suffix_len=4):
+        """
+        批量处理
+        """
+
+        for file_name in os.listdir(input_dir):
+            if file_name.endswith(".csv"):
+                input_path = os.path.join(input_dir, file_name)
+                output_path = os.path.join(output_dir, file_name)
+                self.process_pipeline(input_path, output_path, tags, suffix_len)
+
+    def run_pipeline(
+        self,
+        input_path: str,
+        output_path: str,
+        tags: dict,
+        suffix_len=4,
+    ):
+        """
+        统一调度处理流程
+        """
+
+        window_ms = 125
+
+        # 加载原始数据
+        raw_data = self.load_raw_data(input_path)
+
+        # 数据预处理
+        df = self.expand_to_table(raw_data, tags, suffix_len)
+        df = self.convert_to_relative_time(df)
+
+        # 掩码处理分支
+        mask = self.generate_mask(df)
+        mask = self.downsample_mask(mask, window_ms)
+
+        # 数据处理分支
+        data = self.cal_phase_diff(df)
+        data = self.downsample_data(data, window_ms)
+
+        # 检查维度匹配
+        if mask.shape != data.shape:
+            raise RuntimeError("数据处理出错，掩码与数据维度不匹配")
+
+        # 保存最终结果
+        data.to_csv(output_path, index=False)
+        mask.to_csv(output_path.replace(".csv", "_mask.csv"), index=False)
+
+    def load_raw_data(self, input_path: str):
+        """
+        加载原始数据
+        """
+        df = pd.read_csv(
+            input_path, header=None, names=["time", "id", "channel", "phase", "rssi"]
+        )
+        return df
+
+    def load_data(self, input_path: str):
+        """
+        加载数据
+        """
+        df = pd.read_csv(input_path)
+        return df
+
+    def save_data(
+        self, df: pd.DataFrame, output_path: str, include_header: bool = True
+    ):
+        """
+        保存数据
+        """
+        df.to_csv(output_path, index=False, header=include_header)
+
+    def trim_boundaries(
+        self, df: pd.DataFrame, head_sec: float = 0, tail_sec: float = 0
+    ) -> pd.DataFrame:
+        """
+        丢弃数据的头部和尾部指定秒数的数据
+        """
+
+        # TODO: 未完成
+        head_sec = max(0, head_sec)
+        tail_sec = max(0, tail_sec)
+        if head_sec == 0 and tail_sec == 0:
+            return df
+
+        # 转换时间列为datetime类型
+        df["time"] = pd.to_datetime(df["time"])
+
+        # 获取原始时间范围
+        start_time = df["time"].iloc[0]
+        end_time = df["time"].iloc[-1]
+
+        # 计算新的时间边界
+        new_start = start_time + pd.Timedelta(seconds=head_sec)
+        new_end = end_time - pd.Timedelta(seconds=tail_sec)
+
+        if new_start >= new_end:
+            raise ValueError("新的时间范围无效")
+
+        # 过滤数据
+        mask = (df["time"] >= new_start) & (df["time"] <= new_end)
+        return df[mask]
+
+    def expand_to_table(
+        self, df: pd.DataFrame, tags: dict, suffix_len=4
+    ) -> pd.DataFrame:
+        """
+        将原始数据扩展为包含相位值和通道信息的表格形式
+        """
+
+        if suffix_len <= 0:
+            suffix_len = 4
+
+        # 标准化列名
+        tags_map = {v: v[-suffix_len:] for v in tags.values()}
+
+        # 构建新列头
+        new_columns = ["time"]
+        for tag in tags_map.values():
+            new_columns.append(tag)
+            new_columns.append(f"{tag}-channel")
+
+        # 创建新结构
+        new_data = []
+        for _, row in df.iterrows():
+            time = row["time"]
+            id_val = row["id"]
+            phase = row["phase"]
+            channel = row["channel"]
+
+            if id_val in tags_map:
+                new_row = {"time": time}
+                target = tags_map[id_val]
+                new_row[target] = phase
+                new_row[f"{target}-channel"] = channel
+                new_data.append(new_row)
+
+        new_df = pd.DataFrame(new_data, columns=new_columns)
+        return new_df
+
+    def convert_to_relative_time(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        将绝对时间转化为相对时间
+        """
+        df["time"] = pd.to_datetime(df["time"])
+        start_time = df["time"].iloc[0]
+        delta = df["time"] - start_time
+        df["time"] = (delta.dt.total_seconds() * 1e6).astype(int)  # 转换为微秒
+        return df
+
+    def generate_mask(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        生成掩码
+        """
+
+        # 初始化掩码字典
+        mask_data = {"time": df["time"].copy()}
+
+        # 遍历所有列，生成掩码
+        for col in df.columns:
+            if col != "time" and not col.endswith("-channel"):
+                mask_data[col] = df[col].notna().astype(int)
+
+        mask_df = pd.DataFrame(mask_data)
+        return mask_df
+
+    def cal_phase_diff(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        计算相位差值
+        """
+
+        def adjust_range(x):
+            if pd.isna(x):
+                return x
+            while x >= 2048:
+                x -= 4096
+            while x < -2048:
+                x += 4096
+            return x
+
+        # 初始化结果字典
+        result_data = {"time": df["time"].copy()}
+
+        # 筛选出相位列和信道列
+        phase_cols = [col for col in df.columns[1:] if not col.endswith("-channel")]
+        channel_cols = [f"{col}-channel" for col in phase_cols]
+
+        # 填充空缺值：对相位列和信道列先后进行前向填充和后向填充
+        df[phase_cols + channel_cols] = df[phase_cols + channel_cols].ffill().bfill()
+
+        # 遍历相位列，计算调整后的差值
+        for col in phase_cols:
+            channel_col = f"{col}-channel"
+
+            # 计算原始差分
+            diff = df[col].diff()
+
+            # 创建条件掩码：当前行与上一行的 channel 值相同
+            mask = df[channel_col] == df[channel_col].shift(1)
+
+            # 调整差值范围并添加到结果字典中
+            result_data[col] = diff.where(mask, 0).apply(adjust_range)
+
+        # 构造最终的 DataFrame
+        result_df = pd.DataFrame(result_data)
+        return result_df
+
+    def downsample_data(self, df: pd.DataFrame, window_ms: int = 125) -> pd.DataFrame:
+        """
+        按指定时间窗口对数据进行下采样
+        """
+        if window_ms <= 0:
+            raise ValueError("窗口大小必须为正整数")
+
+        # 将时间窗口转换为微秒
+        window_us = window_ms * 1000
+
+        # 按时间窗口分组并聚合
+        df["time"] = df["time"] // window_us
+        grouped = df.groupby("time").agg(
+            {
+                "time": "first",
+                **{col: "mean" for col in df.columns if col not in ["time"]},
+            }
+        )
+
+        grouped = grouped.round(2)
+
+        # 获取完整的time范围
+        full_time_range = range(int(grouped.index.max()) + 1)
+
+        # 重新索引以填充缺失的time行
+        grouped = grouped.reindex(full_time_range, fill_value=0)
+        grouped["time"] = grouped.index  # 确保time列与索引一致
+
+        return grouped
+
+    def downsample_mask(self, df: pd.DataFrame, window_ms: int = 125) -> pd.DataFrame:
+        """
+        按指定时间窗口对数据进行下采样
+        """
+        if window_ms <= 0:
+            raise ValueError("窗口大小必须为正整数")
+
+        # 将时间窗口转换为微秒
+        window_us = window_ms * 1000
+
+        # 按时间窗口分组并聚合
+        df["time"] = df["time"] // window_us
+        grouped = df.groupby("time").agg(
+            {
+                "time": "first",
+                **{col: "max" for col in df.columns if col != "time"},
+            }
+        )
+
+        # 获取完整的time范围
+        full_time_range = range(int(grouped.index.max()) + 1)
+
+        # 重新索引以填充缺失的time行
+        grouped = grouped.reindex(full_time_range, fill_value=0)
+        grouped["time"] = grouped.index  # 确保time列与索引一致
+
+        return grouped

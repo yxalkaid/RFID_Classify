@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 
-def plot_phase(csv_path, tag_name, limit=1000, offset=0):
+def plot_phase_scatter(csv_path, tag_name, limit=1000, offset=0):
     """
     绘制相位散点图
     """
@@ -57,7 +57,7 @@ def plot_phase(csv_path, tag_name, limit=1000, offset=0):
     plt.show()
 
 
-def plot_phase_differ(csv_path, tag_name, limit=1000, offset=0, filter_zero=True):
+def plot_phase_diff_scatter(csv_path, tag_name, limit=1000, offset=0, filter_zero=True):
     """
     绘制相位差值散点图
     """
@@ -98,7 +98,7 @@ def plot_phase_differ(csv_path, tag_name, limit=1000, offset=0, filter_zero=True
     plt.show()
 
 
-def plot_phase_differ_line(csv_path, tag_name, limit=1000, offset=0, filter_zero=True):
+def plot_phase_diff_line(csv_path, tag_name, limit=1000, offset=0, filter_zero=True):
     """
     绘制相位差值折线图
     """
