@@ -121,9 +121,8 @@ class DataProcessor:
         # 构建tags映射关系
         tags_map = {v: v[-suffix_len:] for v in tags.values()}
 
-        # 过滤有效数据
-        valid_ids = tags_map.keys()
-        df_filtered = df[df["id"].isin(valid_ids)].copy()
+        # 筛选出有效数据
+        df_filtered = df[df["id"].isin(tags_map)].copy()
 
         # 使用数据透视表处理重复值（保留首次出现）
         pivot_phase = df_filtered.pivot_table(
