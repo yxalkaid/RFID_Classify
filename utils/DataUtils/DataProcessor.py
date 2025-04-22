@@ -16,7 +16,7 @@ class DataProcessor:
             if file_name.endswith(".csv"):
                 input_path = os.path.join(input_dir, file_name)
                 output_path = os.path.join(output_dir, file_name)
-                self.process_pipeline(input_path, output_path, tags, suffix_len)
+                self.run_pipeline(input_path, output_path, tags, suffix_len)
 
     def run_pipeline(
         self,
@@ -118,8 +118,11 @@ class DataProcessor:
         if suffix_len <= 0:
             suffix_len = 4
 
-        # 构建tags映射关系
-        tags_map = {v: v[-suffix_len:] for v in tags.values()}
+        # 构建tags映射
+        tag_values = [v for _, v in sorted(tags.items())]
+        if len(tag_values) != len(set(tag_values)):
+            raise ValueError("tags存在重复的值")
+        tags_map = {v: v[-suffix_len:] for v in tag_values}
 
         # 筛选出有效数据
         df_filtered = df[df["id"].isin(tags_map)].copy()
