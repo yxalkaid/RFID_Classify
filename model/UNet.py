@@ -12,8 +12,8 @@ class UNet(nn.Module):
 
     def __init__(
         self,
-        input_shape=(3, 64, 12),
-        init_features=64,
+        input_shape=(3, 32, 12),
+        init_features=32,
         num_classes=6,
         embed_dim=128,
     ):

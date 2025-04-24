@@ -8,7 +8,7 @@ class RFID_Dataset(Dataset):
     RFID数据集
     """
 
-    def __init__(self, file_label_map: dict, T, step=None, transform=None):
+    def __init__(self, file_label_map: dict, T=32, step=None, transform=None):
         super().__init__()
         self.T = T
         if step is None:

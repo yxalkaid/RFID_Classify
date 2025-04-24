@@ -36,6 +36,7 @@ class ClassifyModelWorker:
         print(f"Model will be trained on {device}")
         print("=" * 30)
 
+        logger = None
         if enable_board:
             logger = SummaryWriter()
         for epoch in range(epochs):
@@ -98,7 +99,8 @@ class ClassifyModelWorker:
 
             print(f"Epoch [{epoch + 1}/{epochs}] finish")
             print("=" * 30)
-        logger.close()
+        if enable_board and logger:
+            logger.close()
 
     def evaluate(self, eval_loader: DataLoader, criterion):
         """
