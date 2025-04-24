@@ -19,6 +19,7 @@ def save_data(df: pd.DataFrame, output_path: str, include_header: bool = True):
 def get_unique_values(csv_path, column_index):
 
     df = pd.read_csv(csv_path)
+    df = df.dropna()
     unique_values = df.iloc[:, column_index].unique().tolist()
     unique_values.sort()
     return unique_values

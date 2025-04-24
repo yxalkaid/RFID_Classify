@@ -12,6 +12,9 @@ class DataProcessor:
         批量处理
         """
 
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
         for file_name in os.listdir(input_dir):
             if file_name.endswith(".csv"):
                 input_path = os.path.join(input_dir, file_name)
@@ -33,6 +36,9 @@ class DataProcessor:
 
         # 加载原始数据
         raw_data = self.load_raw_data(input_path)
+
+        # 丢弃边界数据
+        raw_data = self.trim_boundaries(raw_data, head_sec=5, tail_sec=5)
 
         # 数据预处理
         df = self.expand_to_table(raw_data, tags, suffix_len)
@@ -91,6 +97,7 @@ class DataProcessor:
         if head_sec == 0 and tail_sec == 0:
             return df
 
+        df.dropna(inplace=True)
         # 转换时间列为datetime类型
         df["time"] = pd.to_datetime(df["time"])
 
@@ -119,7 +126,7 @@ class DataProcessor:
             suffix_len = 4
 
         # 构建tags映射
-        tag_values = [v for _, v in sorted(tags.items())]
+        tag_values = [v.replace("_", "") for _, v in sorted(tags.items())]
         if len(tag_values) != len(set(tag_values)):
             raise ValueError("tags存在重复的值")
         tags_map = {v: v[-suffix_len:] for v in tag_values}
