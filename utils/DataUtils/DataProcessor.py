@@ -29,15 +29,15 @@ class DataProcessor:
             if file_name.endswith(".csv"):
                 input_path = os.path.join(input_dir, file_name)
                 output_path = os.path.join(output_dir, file_name)
-                maks_path = None
+                mask_path = None
                 if mask_dir:
-                    maks_path = os.path.join(mask_dir, file_name)
+                    mask_path = os.path.join(mask_dir, file_name)
                 self.run_pipeline(
                     input_path,
                     output_path,
                     tags,
                     suffix_len,
-                    maks_path=maks_path,
+                    mask_path=mask_path,
                 )
 
     def run_pipeline(
@@ -46,7 +46,7 @@ class DataProcessor:
         output_path: str,
         tags: dict,
         suffix_len=4,
-        maks_path=None,
+        mask_path=None,
     ):
         """
         统一调度处理流程
@@ -65,7 +65,7 @@ class DataProcessor:
         df = self.convert_to_relative_time(df)
 
         # 掩码处理分支
-        if maks_path:
+        if mask_path:
             mask = self.generate_mask(df)
             mask = self.downsample_mask(mask, window_ms)
 
@@ -73,15 +73,15 @@ class DataProcessor:
         data = self.cal_phase_diff(df)
         data = self.downsample_data(data, window_ms)
 
-        if maks_path:
+        if mask_path:
             # 检查维度匹配
             if mask.shape != data.shape:
                 raise RuntimeError("数据处理出错，掩码与数据维度不匹配")
 
         # 保存最终结果
         data.to_csv(output_path, index=False)
-        if maks_path:
-            mask.to_csv(maks_path, index=False)
+        if mask_path:
+            mask.to_csv(mask_path, index=False)
 
     def load_raw_data(self, input_path: str):
         """

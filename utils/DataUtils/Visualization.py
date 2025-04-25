@@ -1,5 +1,6 @@
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 def plot_phase_scatter(csv_path, tag_name, limit=1000, offset=0):
@@ -138,6 +139,75 @@ def plot_phase_diff_line(csv_path, tag_name, limit=1000, offset=0, filter_zero=T
     plt.xlabel("Time Point")
     plt.ylabel("Phase Difference")
     plt.grid(True, linestyle="--", alpha=0.7)
+
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_classes_scatter(datas, labels, title=None):
+    """
+    绘制散点图
+    """
+
+    # 检查输入数据形状
+    if datas.shape[1] != 2:
+        raise ValueError("输入数据必须为二维数组")
+    if len(labels) != datas.shape[0]:
+        raise ValueError("标签数组长度与输入数据长度不匹配")
+
+    # 创建颜色映射
+    unique_labels = np.unique(labels)
+    colors = plt.cm.tab10(range(len(unique_labels)))
+
+    # 绘制散点图
+    plt.figure(figsize=(10, 6))
+    for i, label in enumerate(unique_labels):
+        mask = labels == label
+        plt.scatter(
+            datas[mask, 0],
+            datas[mask, 1],
+            color=colors[i],
+            alpha=0.7,
+            label=f"Label {label}",
+        )
+
+    # 设置图表属性
+    plt.title(title)
+    plt.xlabel("x")
+    plt.ylabel("y")
+    plt.grid(True, linestyle="--", alpha=0.7)
+    plt.legend()
+
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_3d_line(
+    datas,
+):
+    """
+    绘制时间序列特征的3D折线图
+    """
+
+    T, P = datas.shape[-2:]
+
+    # 创建画布
+    fig = plt.figure(figsize=(10, 6))
+    ax = fig.add_subplot(111, projection="3d")
+
+    # 绘制每个特征的轨迹
+    for index in range(P):
+        x = np.arange(T)  # 时间轴坐标
+        y = np.full(T, index)  # 特征轴坐标
+        z = datas[:, index]  # 特征值
+
+        ax.plot(x, y, z, alpha=0.7)
+
+    # 设置图表属性
+    ax.set_xlabel("Time")
+    ax.set_ylabel("Feature")
+    ax.set_zlabel("Value")
+    # ax.view_init(elev=20, azim=-20)
 
     plt.tight_layout()
     plt.show()

@@ -17,6 +17,9 @@ def save_data(df: pd.DataFrame, output_path: str, include_header: bool = True):
 
 
 def get_unique_values(csv_path, column_index):
+    """
+    获取列的唯一值
+    """
 
     df = pd.read_csv(csv_path)
     df = df.dropna()
