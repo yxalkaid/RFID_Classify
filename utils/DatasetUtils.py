@@ -4,6 +4,9 @@ from matplotlib import pyplot as plt
 
 import random
 from typing import Callable
+import os
+import re
+from collections import defaultdict
 
 
 class DatasetUtils:
@@ -128,3 +131,40 @@ class DatasetUtils:
 
         if count > 0:
             plt.show()
+
+    def load_data_map(self, data_dir: str, labels: list = None):
+
+        if not os.path.exists(data_dir):
+            raise FileNotFoundError(f"{data_dir} 不存在")
+
+        data_map = defaultdict(list)
+        label_pattern = re.compile(r"^(\d+)")  # 严格匹配开头数字
+
+        for entry in os.scandir(data_dir):
+            if not entry.is_dir():
+                continue
+
+            match = label_pattern.match(entry.name)
+            if not match:
+                continue
+
+            label_num = int(match.group(1))
+
+            if labels:
+                # 检查标签是否存在
+                if label_num not in labels:
+                    print(f"{entry.path} 无对应标签")
+
+            file_paths = [
+                os.path.join(entry.path, file)
+                for file in os.listdir(entry.path)
+                if file.endswith(".csv")
+            ]
+
+            if file_paths:
+                data_map[label_num].extend(file_paths)
+
+        for label in labels:
+            if label not in data_map:
+                print(f"未在 {data_dir} 中找到标签 {label} 对应的数据")
+        return dict(data_map)

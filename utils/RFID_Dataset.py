@@ -11,8 +11,24 @@ class RFID_Dataset(Dataset):
     """
 
     def __init__(
-        self, file_label_map: dict, T=32, step=None, transform=None, cache_path=None
+        self, data_map: dict, T=32, step=None, transform=None, cache_path=None
     ):
+        """
+        RFID数据集
+
+        Parameters
+        ----------
+        data_map : dict
+            数据映射，key为标签，value为文件路径列表
+        T : int, optional
+            时间点数, by default 32
+        step : int, optional
+            步长, 为None时，默认为T
+        transform : optional
+
+        cache_path : optional
+
+        """
         super().__init__()
         self.T = T
         if step is None:
@@ -30,8 +46,9 @@ class RFID_Dataset(Dataset):
         self.feature_size = None
 
         # 遍历处理所有文件
-        for file_path, label in file_label_map.items():
-            self.__process_file(file_path, label)
+        for label, path_list in data_map.items():
+            for path in path_list:
+                self.__process_file(path, label)
         self.datas = torch.stack(self.datas)
         self.labels = torch.tensor(self.labels, dtype=torch.long)
         # if cache_path:
