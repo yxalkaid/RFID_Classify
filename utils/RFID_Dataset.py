@@ -3,6 +3,9 @@ from torch.utils.data import Dataset
 import pandas as pd
 import os
 import pickle
+import re
+from collections import defaultdict
+from typing import Union
 
 
 class RFID_Dataset(Dataset):
@@ -11,24 +14,13 @@ class RFID_Dataset(Dataset):
     """
 
     def __init__(
-        self, data_map: dict, T=32, step=None, transform=None, cache_path=None
+        self,
+        data_map: Union[dict, str],
+        T=32,
+        step=None,
+        transform=None,
+        cache_path=None,
     ):
-        """
-        RFID数据集
-
-        Parameters
-        ----------
-        data_map : dict
-            数据映射，key为标签，value为文件路径列表
-        T : int, optional
-            时间点数, by default 32
-        step : int, optional
-            步长, 为None时，默认为T
-        transform : optional
-
-        cache_path : optional
-
-        """
         super().__init__()
         self.T = T
         if step is None:
@@ -45,6 +37,8 @@ class RFID_Dataset(Dataset):
         self.labels = []
         self.feature_size = None
 
+        if isinstance(data_map, str):
+            data_map = self.load_data_map(data_map)
         # 遍历处理所有文件
         for label, path_list in data_map.items():
             for path in path_list:
@@ -128,3 +122,41 @@ class RFID_Dataset(Dataset):
 
     def get_feature_size(self):
         return self.feature_size
+
+    def load_data_map(self, data_dir: str, labels: list = None):
+
+        if not os.path.exists(data_dir):
+            raise FileNotFoundError(f"{data_dir} 不存在")
+
+        data_map = defaultdict(list)
+        label_pattern = re.compile(r"^(\d+)")  # 严格匹配开头数字
+
+        for entry in os.scandir(data_dir):
+            if not entry.is_dir():
+                continue
+
+            match = label_pattern.match(entry.name)
+            if not match:
+                continue
+
+            label_num = int(match.group(1))
+
+            if labels:
+                # 检查标签是否存在
+                if label_num not in labels:
+                    print(f"{entry.path} 无对应标签")
+
+            file_paths = [
+                os.path.join(entry.path, file)
+                for file in os.listdir(entry.path)
+                if file.endswith(".csv")
+            ]
+
+            if file_paths:
+                data_map[label_num].extend(file_paths)
+
+        if labels:
+            for label in labels:
+                if label not in data_map:
+                    print(f"未在 {data_dir} 中找到标签 {label} 对应的数据")
+        return dict(data_map)
