@@ -31,6 +31,7 @@ class CDModelWorker:
         print("=" * 30)
 
         for epoch in range(epochs):
+            self.model.train()
 
             running_loss = 0.0
 
@@ -149,7 +150,7 @@ class CDModelWorker:
                 reversed(range(1, time + 1)),
                 desc="Sampling",
                 unit="step",
-                total=time - 1,
+                total=time,
             )
             x = torch.randn(count, *(self.model.input_shape), device=device)
             for t in progress:

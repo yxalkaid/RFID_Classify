@@ -2,12 +2,12 @@ import torch
 import torch.nn as nn
 
 
-class ClassifyNet(nn.Module):
+class CNNClassifyNet(nn.Module):
     """
-    分类网络
+    CNN 分类网络
     """
 
-    def __init__(self, input_shape=(3, 32, 12), num_classes=6):
+    def __init__(self, input_shape=(1, 28, 28), num_classes=10):
         super().__init__()
 
         self.layers = nn.ModuleList()

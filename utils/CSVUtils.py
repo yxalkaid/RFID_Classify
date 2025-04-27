@@ -39,3 +39,32 @@ def get_zero_rows(csv_path, start_col=0):
     selected_cols = df.iloc[:, start_col:]
     zero_rows = df[selected_cols.eq(0).all(axis=1)].index.tolist()
     return zero_rows
+
+
+import pandas as pd
+import os
+import torch
+
+
+def save_samples_as_csv(datas, output_dir, include_header=True):
+    if isinstance(datas, torch.Tensor):
+        datas = datas.cpu().numpy()
+
+    # 创建输出目录（如果不存在）
+    os.makedirs(output_dir, exist_ok=True)
+
+    # 遍历每个样本并保存为 CSV 文件
+    for i, data in enumerate(datas):
+        # 去掉多余的维度
+        data = data.squeeze(0)
+
+        # 创建 DataFrame 并添加索引列
+        df = pd.DataFrame(data)
+        df.index.name = "time"  # 设置索引列的名称
+
+        # 定义文件名
+        file_name = f"sample_{i+1}.csv"
+        file_path = os.path.join(output_dir, file_name)
+
+        # 保存为 CSV 文件
+        df.to_csv(file_path, index=True, header=include_header)

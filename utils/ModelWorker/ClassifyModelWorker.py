@@ -40,6 +40,7 @@ class ClassifyModelWorker:
         if enable_board:
             logger = SummaryWriter()
         for epoch in range(epochs):
+            self.model.train()
 
             running_loss = 0.0
             running_corrects = 0
