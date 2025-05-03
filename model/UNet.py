@@ -12,9 +12,9 @@ class UNet(nn.Module):
 
     def __init__(
         self,
-        input_shape=(3, 32, 12),
+        input_shape=(1, 28, 28),
         init_features=32,
-        num_classes=6,
+        num_classes=10,
         embed_dim=128,
     ):
         super().__init__()

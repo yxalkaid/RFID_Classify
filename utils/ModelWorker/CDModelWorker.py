@@ -153,8 +153,8 @@ class CDModelWorker:
                 total=time,
             )
             x = torch.randn(count, *(self.model.input_shape), device=device)
+            now_t = torch.full((count,), time, dtype=torch.long, device=device)
             for t in progress:
-                now_t = torch.tensor([t] * count, device=device)
                 prev_noise = self.model(x=x, time=now_t, condition=c)
                 x = self.model.reverse_process_DDPM(
                     xt=x,
@@ -162,6 +162,7 @@ class CDModelWorker:
                     prev_noise=prev_noise,
                     add_noise=add_noise,
                 )
+                now_t -= 1
             progress.close()
 
         return x

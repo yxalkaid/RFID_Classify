@@ -86,6 +86,7 @@ class CD_Model(nn.Module):
         """
         反向去噪，DDIM过程
         """
+        raise NotImplementedError("DDIM not implemented yet")
 
         # sqrt(ᾱ_s)
         sqrt_alpha_bar_prev = self.scheduler.get_sqrt_alpha_bar(target_time)

@@ -14,7 +14,7 @@ class DownSample(nn.Module):
         self.down = nn.MaxPool2d(2, 2)
         self.res = ResidualBlock(in_channels, out_channels, embed_dim)
         self.conv = ConvBlock(out_channels, out_channels)
-        self.atten = SelfAttention(out_channels, num_heads=num_heads)
+        self.atten = AttentionBlock(out_channels, num_heads=num_heads)
 
     def forward(self, x, embed):
         x = self.down(x)
@@ -34,7 +34,7 @@ class UpSample(nn.Module):
         self.up = nn.ConvTranspose2d(in_channels, out_channels, kernel_size=2, stride=2)
         self.res = ResidualBlock(in_channels, out_channels, embed_dim)
         self.conv = ConvBlock(out_channels, out_channels)
-        self.atten = SelfAttention(out_channels, num_heads=num_heads)
+        self.atten = AttentionBlock(out_channels, num_heads=num_heads)
 
     def forward(self, x, embed, skip=None):
         x = self.up(x)
@@ -78,24 +78,25 @@ class ResidualBlock(nn.Module):
     ):
         super().__init__()
 
-        # 跳跃连接处理
-        self.skip_conv = (
-            nn.Conv2d(in_channels, out_channels, 1)
-            if in_channels != out_channels
-            else nn.Identity()
-        )
+        if in_channels != out_channels:
+            self.shortcut = nn.Conv2d(in_channels, out_channels, kernel_size=1)
+        else:
+            self.shortcut = nn.Identity()
 
         self.conv01 = nn.Sequential(
             nn.GroupNorm(32, in_channels),
-            nn.SiLU(),
+            nn.ReLU(),
             nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
         )
 
         self.conv02 = nn.Sequential(
             nn.GroupNorm(32, out_channels),
-            nn.SiLU(),
+            nn.ReLU(),
+            nn.Dropout(0.1),
             nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
         )
+
+        self.relu = nn.ReLU()
 
         # 自适应条件注入层 (AdaGN)
         self.embed_proj = nn.Linear(embed_dim, 2 * out_channels)
@@ -112,31 +113,39 @@ class ResidualBlock(nn.Module):
         return x * (1 + scale) + shift
 
     def forward(self, x, embed):
-        identity = self.skip_conv(x)
+        identity = self.shortcut(x)
 
         h = self.conv01(x)
         h = self.adagn(h, embed)
         h = self.conv02(h)
         out = h + identity
+        out = self.relu(out)
         return out
 
 
-class SelfAttention(nn.Module):
+class AttentionBlock(nn.Module):
     """
-    自注意力块
+    注意力块
     """
 
     def __init__(self, in_channels, num_heads=4):
         super().__init__()
         self.norm = nn.GroupNorm(32, in_channels)
         self.mha = nn.MultiheadAttention(
-            embed_dim=in_channels, num_heads=num_heads, batch_first=True
+            embed_dim=in_channels,
+            num_heads=num_heads,
+            batch_first=False,
+            kdim=in_channels,
+            vdim=in_channels,
         )
+
+        self.proj = nn.Conv2d(in_channels, in_channels, kernel_size=1)
 
     def forward(self, x):
         B, C, H, W = x.shape
         x = self.norm(x)
-        x = x.view(B, C, H * W).permute(0, 2, 1)
+        x = x.view(B, C, H * W).permute(2, 0, 1)
         attn_output, _ = self.mha(x, x, x)
-        attn_output = attn_output.permute(0, 2, 1).view(B, C, H, W)
-        return attn_output
+        attn_output = attn_output.permute(1, 2, 0).view(B, C, H, W)
+        out = self.proj(attn_output)
+        return out

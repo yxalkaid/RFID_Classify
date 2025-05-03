@@ -27,7 +27,7 @@ class EmbeddingBlock(nn.Module):
     嵌入块
     """
 
-    def __init__(self, time_embed_dim=64, class_embed_dim=64, num_classes=6):
+    def __init__(self, time_embed_dim=64, class_embed_dim=64, num_classes=10):
         super().__init__()
         self.time_embed_dim = time_embed_dim
         self.class_embed_dim = class_embed_dim
