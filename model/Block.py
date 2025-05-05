@@ -12,9 +12,10 @@ class DownSample(nn.Module):
         super().__init__()
 
         self.down = nn.MaxPool2d(2, 2)
-        self.res = ResidualBlock(in_channels, out_channels, embed_dim)
+
+        self.res = ResidualBlock(in_channels, out_channels, embed_dim=embed_dim)
         self.conv = ConvBlock(out_channels, out_channels)
-        self.atten = AttentionBlock(out_channels, num_heads=num_heads)
+        self.atten = SelfAttention(out_channels, num_heads=num_heads)
 
     def forward(self, x, embed):
         x = self.down(x)
@@ -31,18 +32,21 @@ class UpSample(nn.Module):
 
     def __init__(self, in_channels, out_channels, embed_dim=128, num_heads=4):
         super().__init__()
+
         self.up = nn.ConvTranspose2d(in_channels, out_channels, kernel_size=2, stride=2)
-        self.res = ResidualBlock(in_channels, out_channels, embed_dim)
+
+        self.res = ResidualBlock(in_channels, out_channels, embed_dim=embed_dim)
         self.conv = ConvBlock(out_channels, out_channels)
-        self.atten = AttentionBlock(out_channels, num_heads=num_heads)
+        self.atten = SelfAttention(out_channels, num_heads=num_heads)
 
     def forward(self, x, embed, skip=None):
         x = self.up(x)
         x = torch.cat([x, skip], dim=1)
-        out = self.res(x, embed)
-        out = self.conv(out)
-        out = self.atten(out)
-        return out
+
+        x = self.res(x, embed)
+        x = self.conv(x)
+        x = self.atten(x)
+        return x
 
 
 class ConvBlock(nn.Module):
@@ -74,6 +78,7 @@ class ResidualBlock(nn.Module):
         self,
         in_channels,
         out_channels,
+        num_groups=32,
         embed_dim=128,
     ):
         super().__init__()
@@ -83,34 +88,18 @@ class ResidualBlock(nn.Module):
         else:
             self.shortcut = nn.Identity()
 
+        self.adagn = AdaGN(out_channels, embed_dim=embed_dim)
+
         self.conv01 = nn.Sequential(
-            nn.GroupNorm(32, in_channels),
-            nn.ReLU(),
             nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+            nn.GELU(),
+            nn.GroupNorm(num_groups, out_channels),
         )
 
         self.conv02 = nn.Sequential(
-            nn.GroupNorm(32, out_channels),
-            nn.ReLU(),
-            nn.Dropout(0.1),
             nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
+            nn.GroupNorm(num_groups, out_channels),
         )
-
-        self.relu = nn.ReLU()
-
-        # 自适应条件注入层 (AdaGN)
-        self.embed_proj = nn.Linear(embed_dim, 2 * out_channels)
-
-    def adagn(self, x, embed) -> torch.Tensor:
-        """
-        自适应组归一化
-        """
-        scale_shift = self.embed_proj(embed)
-        scale, shift = scale_shift.chunk(2, dim=1)
-        scale = scale.unsqueeze(-1).unsqueeze(-1)
-        shift = shift.unsqueeze(-1).unsqueeze(-1)
-
-        return x * (1 + scale) + shift
 
     def forward(self, x, embed):
         identity = self.shortcut(x)
@@ -119,33 +108,52 @@ class ResidualBlock(nn.Module):
         h = self.adagn(h, embed)
         h = self.conv02(h)
         out = h + identity
-        out = self.relu(out)
         return out
 
 
-class AttentionBlock(nn.Module):
+class SelfAttention(nn.Module):
     """
-    注意力块
+    自注意力块
     """
 
-    def __init__(self, in_channels, num_heads=4):
+    def __init__(self, in_channels, num_heads=4, num_groups=32):
         super().__init__()
-        self.norm = nn.GroupNorm(32, in_channels)
-        self.mha = nn.MultiheadAttention(
+
+        self.norm = nn.GroupNorm(num_groups, in_channels)
+        self.attn = nn.MultiheadAttention(
             embed_dim=in_channels,
             num_heads=num_heads,
-            batch_first=False,
             kdim=in_channels,
             vdim=in_channels,
+            batch_first=False,
         )
-
-        self.proj = nn.Conv2d(in_channels, in_channels, kernel_size=1)
 
     def forward(self, x):
         B, C, H, W = x.shape
+        x_norm = self.norm(x)
+        x_flat = x_norm.view(B, C, H * W).permute(2, 0, 1)
+        attn_output, _ = self.attn(x_flat, x_flat, x_flat)
+        out = attn_output.permute(1, 2, 0).view(B, C, H, W)
+        return out
+
+
+class AdaGN(nn.Module):
+    """
+    自适应归一化
+    """
+
+    def __init__(self, in_channels, embed_dim=128):
+        super().__init__()
+        self.norm = nn.GroupNorm(32, in_channels)
+        self.embed_proj = nn.Sequential(
+            nn.SiLU(),
+            nn.Linear(embed_dim, 2 * in_channels),
+        )
+
+    def forward(self, x, embed):
+        scale_shift = self.embed_proj(embed)  # (B, 2 * C)
+        scale, shift = scale_shift[:, :, None, None].chunk(2, dim=1)
+
         x = self.norm(x)
-        x = x.view(B, C, H * W).permute(2, 0, 1)
-        attn_output, _ = self.mha(x, x, x)
-        attn_output = attn_output.permute(1, 2, 0).view(B, C, H, W)
-        out = self.proj(attn_output)
+        out = x * (1 + scale) + shift
         return out

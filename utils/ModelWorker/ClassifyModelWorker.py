@@ -98,7 +98,6 @@ class ClassifyModelWorker:
                     logger.add_scalar("eval/loss", eval_loss, epoch + 1)
                     logger.add_scalar("eval/acc", eval_acc, epoch + 1)
 
-            print(f"Epoch [{epoch + 1}/{epochs}] finish")
             print("=" * 30)
         if enable_board and logger:
             logger.close()

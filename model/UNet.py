@@ -2,7 +2,7 @@ import torch
 from torch import nn
 
 from .EmbeddingBlock import EmbeddingBlock
-from .Block import ConvBlock, DownSample, UpSample
+from .Block import ConvBlock, DownSample, UpSample, ResidualBlock
 
 
 class UNet(nn.Module):
@@ -25,14 +25,23 @@ class UNet(nn.Module):
         features = init_features
 
         # 嵌入层
-        self.embedder = EmbeddingBlock(embed_dim, embed_dim, num_classes)
+        self.embedder = EmbeddingBlock(
+            embed_dim, embed_dim // 2, embed_dim // 2, num_classes
+        )
 
-        # 首卷积
-        self.head_conv = ConvBlock(in_channels, features)
+        # 首部
+        self.head_block = nn.Sequential(
+            ConvBlock(in_channels, features),
+            ResidualBlock(features, features, embed_dim=embed_dim),
+        )
 
         # 编码器
-        self.encoder01 = DownSample(features, features * 2, embed_dim)
-        self.encoder02 = DownSample(features * 2, features * 4, embed_dim)
+        self.encoder = nn.ModuleList(
+            [
+                DownSample(features, features * 2, embed_dim),
+                DownSample(features * 2, features * 4, embed_dim),
+            ]
+        )
 
         # 中间瓶颈层
         self.bottleneck = nn.Sequential(
@@ -42,32 +51,44 @@ class UNet(nn.Module):
         )
 
         # 解码器
-        self.decoder02 = UpSample(features * 4, features * 2, embed_dim)
-        self.decoder01 = UpSample(features * 2, features, embed_dim)
+        self.decoder = nn.ModuleList(
+            [
+                UpSample(features * 4, features * 2, embed_dim, 2),
+                UpSample(features * 2, features, embed_dim, 2),
+            ]
+        )
 
-        # 尾卷积
-        self.tail_conv = nn.Conv2d(features, out_channels, kernel_size=3, padding=1)
+        # 尾部
+        self.tail_block = nn.Sequential(
+            ResidualBlock(features, features, embed_dim=embed_dim),
+            nn.Conv2d(features, out_channels, kernel_size=1),
+        )
 
     def forward(self, x, time, condition):
 
         # 生成联合嵌入
         embed = self.embedder(time, condition)
 
-        # 初始卷积
-        init_x = self.head_conv(x)
+        skip_group = []
+
+        # 首部
+        x = self.head_block[0](x)
+        enc_x = self.head_block[1](x, embed=embed)
 
         # 编码器路径
-        enc01_x = self.encoder01(init_x, embed)
-        enc02_x = self.encoder02(enc01_x, embed)
+        for down in self.encoder:
+            skip_group.append(enc_x)
+            enc_x = down(enc_x, embed)
 
         # 中间瓶颈层
-        bot_x = self.bottleneck(enc02_x)
+        dec_x = self.bottleneck(enc_x)
 
         # 解码器路径
-        dec02_x = self.decoder02(bot_x, embed, enc01_x)
-        dec01_x = self.decoder01(dec02_x, embed, init_x)
+        for up in self.decoder:
+            dec_x = up(dec_x, embed, skip_group.pop())
 
-        # 最终卷积
-        out = self.tail_conv(dec01_x)
+        # 尾部
+        dec_x = self.tail_block[0](dec_x, embed=embed)
+        out = self.tail_block[1](dec_x)
 
         return out

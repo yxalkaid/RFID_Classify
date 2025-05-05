@@ -83,7 +83,6 @@ class CDModelWorker:
             if eval_loader is not None:
                 eval_loss = self.evaluate(eval_loader, criterion)
 
-            print(f"Epoch [{epoch + 1}/{epochs}] finish")
             print("=" * 30)
 
     def evaluate(self, eval_loader: DataLoader, criterion):
@@ -143,8 +142,10 @@ class CDModelWorker:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(device)
 
+        # 设置初始时间步和条件向量
         time = time if time > 0 else self.model.timesteps - 1
         c = torch.tensor([condition] * count, device=device)
+
         with torch.no_grad():
             progress = tqdm(
                 reversed(range(1, time + 1)),

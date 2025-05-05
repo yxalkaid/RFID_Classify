@@ -15,11 +15,15 @@ class PositionalEncoding(nn.Module):
 
     def forward(self, time):
         time = time.float()
-        emb = time[:, None] * self.emb[None, :]  # [B, half_dim]
-        emb = torch.cat([torch.sin(emb), torch.cos(emb)], dim=1)  # [B, dim]
+        time_code = time[:, None] * self.emb[None, :]  # [B, half_dim]
+        time_code = torch.cat(
+            [torch.sin(time_code), torch.cos(time_code)], dim=1
+        )  # [B, dim]
         if self.dim % 2 == 1:  # 处理奇数维度
-            emb = torch.cat([emb, torch.zeros_like(emb[:, :1])], dim=1)
-        return emb
+            time_code = torch.cat(
+                [time_code, torch.zeros_like(time_code[:, :1])], dim=1
+            )
+        return time_code
 
 
 class EmbeddingBlock(nn.Module):
@@ -27,33 +31,35 @@ class EmbeddingBlock(nn.Module):
     嵌入块
     """
 
-    def __init__(self, time_embed_dim=64, class_embed_dim=64, num_classes=10):
+    def __init__(
+        self, output_dim=128, time_embed_dim=64, class_embed_dim=64, num_classes=10
+    ):
         super().__init__()
         self.time_embed_dim = time_embed_dim
         self.class_embed_dim = class_embed_dim
 
         # 时间步嵌入
         self.time_embed = nn.Sequential(
-            PositionalEncoding(dim=time_embed_dim),
-            nn.Linear(time_embed_dim, time_embed_dim),
+            PositionalEncoding(time_embed_dim),
+            nn.Linear(time_embed_dim, time_embed_dim // 2),
             nn.SiLU(),
-            nn.Linear(time_embed_dim, time_embed_dim),
+            nn.Linear(time_embed_dim // 2, time_embed_dim),
         )
 
         # 条件嵌入
         self.class_embed = nn.Sequential(
-            nn.Embedding(num_classes, class_embed_dim),
-            nn.Linear(class_embed_dim, class_embed_dim),
+            nn.Embedding(num_classes, class_embed_dim // 2),
             nn.SiLU(),
-            nn.Linear(class_embed_dim, class_embed_dim),
+            nn.Linear(class_embed_dim // 2, class_embed_dim),
         )
 
         # 联合嵌入
-        self.combine_proj = nn.Linear(time_embed_dim + class_embed_dim, time_embed_dim)
+        if output_dim != (time_embed_dim + class_embed_dim):
+            self.combine_proj = nn.Linear(time_embed_dim + class_embed_dim, output_dim)
+        else:
+            self.combine_proj = nn.Identity()
 
     def forward(self, time, condition):
-        time = time.long()
-        condition = condition.long()
         time_embed = self.time_embed(time)
         cond_embed = self.class_embed(condition)
 
