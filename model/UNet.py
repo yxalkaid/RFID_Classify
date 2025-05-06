@@ -2,7 +2,7 @@ import torch
 from torch import nn
 
 from .EmbeddingBlock import EmbeddingBlock
-from .Block import ConvBlock, DownSample, UpSample, ResidualBlock
+from .Block import ConvBlock, DownSample, UpSample
 
 
 class UNet(nn.Module):
@@ -32,7 +32,6 @@ class UNet(nn.Module):
         # 首部
         self.head_block = nn.Sequential(
             ConvBlock(in_channels, features),
-            ResidualBlock(features, features, embed_dim=embed_dim),
         )
 
         # 编码器
@@ -53,15 +52,14 @@ class UNet(nn.Module):
         # 解码器
         self.decoder = nn.ModuleList(
             [
-                UpSample(features * 4, features * 2, embed_dim, 2),
-                UpSample(features * 2, features, embed_dim, 2),
+                UpSample(features * 4, features * 2, embed_dim),
+                UpSample(features * 2, features, embed_dim),
             ]
         )
 
         # 尾部
         self.tail_block = nn.Sequential(
-            ResidualBlock(features, features, embed_dim=embed_dim),
-            nn.Conv2d(features, out_channels, kernel_size=1),
+            nn.Conv2d(features, out_channels, kernel_size=3, padding=1),
         )
 
     def forward(self, x, time, condition):
@@ -72,8 +70,7 @@ class UNet(nn.Module):
         skip_group = []
 
         # 首部
-        x = self.head_block[0](x)
-        enc_x = self.head_block[1](x, embed=embed)
+        enc_x = self.head_block(x)
 
         # 编码器路径
         for down in self.encoder:
@@ -88,7 +85,6 @@ class UNet(nn.Module):
             dec_x = up(dec_x, embed, skip_group.pop())
 
         # 尾部
-        dec_x = self.tail_block[0](dec_x, embed=embed)
-        out = self.tail_block[1](dec_x)
+        out = self.tail_block(dec_x)
 
         return out

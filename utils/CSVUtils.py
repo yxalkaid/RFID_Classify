@@ -46,12 +46,15 @@ import os
 import torch
 
 
-def save_samples_as_csv(datas, output_dir, include_header=True):
+def save_samples_as_csv(datas, output_dir, start_index=-1, include_header=True):
     if isinstance(datas, torch.Tensor):
         datas = datas.cpu().numpy()
 
     # 创建输出目录（如果不存在）
     os.makedirs(output_dir, exist_ok=True)
+
+    if start_index == -1:
+        start_index = len(os.listdir(output_dir))
 
     # 遍历每个样本并保存为 CSV 文件
     for i, data in enumerate(datas):
@@ -63,7 +66,7 @@ def save_samples_as_csv(datas, output_dir, include_header=True):
         df.index.name = "time"  # 设置索引列的名称
 
         # 定义文件名
-        file_name = f"sample_{i+1}.csv"
+        file_name = f"sample_{i+start_index}.csv"
         file_path = os.path.join(output_dir, file_name)
 
         # 保存为 CSV 文件

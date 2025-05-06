@@ -111,6 +111,22 @@ class ResidualBlock(nn.Module):
         return out
 
 
+# class SelfAttention(nn.Module):
+#     def __init__(self, in_channels, num_heads=4, num_groups=32):
+#         super().__init__()
+#         self.qkv = nn.Conv2d(in_channels, 3 * in_channels, 1)
+#         self.proj = nn.Conv2d(in_channels, in_channels, 1)
+
+#     def forward(self, x):
+#         B, C, H, W = x.shape
+#         q, k, v = self.qkv(x).chunk(3, dim=1)  # (B, C, H, W)
+#         q = q.softmax(dim=-2)  # 沿空间维度归一化
+#         k = k.softmax(dim=-1)
+#         context = torch.einsum("bchw,bcHW->bchW", k, v)
+#         out = torch.einsum("bchw,bchW->bchw", q, context)
+#         return self.proj(out)
+
+
 class SelfAttention(nn.Module):
     """
     自注意力块
@@ -132,7 +148,8 @@ class SelfAttention(nn.Module):
         B, C, H, W = x.shape
         x_norm = self.norm(x)
         x_flat = x_norm.view(B, C, H * W).permute(2, 0, 1)
-        attn_output, _ = self.attn(x_flat, x_flat, x_flat)
+        # attn_output, _ = self.attn(x_flat, x_flat, x_flat)
+        attn_output = F.scaled_dot_product_attention(x_flat, x_flat, x_flat)
         out = attn_output.permute(1, 2, 0).view(B, C, H, W)
         return out
 
