@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 import os
@@ -22,6 +23,7 @@ class CDModelWorker:
         eval_loader: DataLoader = None,
         epochs=5,
         scheduler=None,
+        enable_board=False,
     ):
         # 设置模型为训练模式
         self.model.train()
@@ -31,12 +33,17 @@ class CDModelWorker:
         print(f"Model will be trained on {device}")
         print("=" * 30)
 
+        logger = None
+        if enable_board:
+            logger = SummaryWriter()
         for epoch in range(epochs):
             self.model.train()
 
             running_loss = 0.0
 
             print(f"Epoch [{epoch+1}/{epochs}] begin...")
+            if scheduler is not None:
+                print(f"Learning rate: {scheduler.get_last_lr()[0]:.6f}")
 
             # 设置进度条
             train_progress = tqdm(
@@ -81,13 +88,18 @@ class CDModelWorker:
 
             print(f"Train Loss: {train_loss:.4f}")
 
+            if enable_board and logger:
+                logger.add_scalar("train/loss", train_loss, epoch + 1)
+
             if eval_loader is not None:
                 eval_loss = self.evaluate(eval_loader, criterion)
+                if enable_board and logger:
+                    logger.add_scalar("eval/loss", eval_loss, epoch + 1)
 
-            print("=" * 30)
             if scheduler is not None:
                 scheduler.step()
-                print(f"Learning rate: {scheduler.get_last_lr()[0]:.6f}")
+
+            print("=" * 30)
 
     def evaluate(self, eval_loader: DataLoader, criterion):
 
@@ -169,8 +181,8 @@ class CDModelWorker:
                 )
                 now_t -= 1
             progress.close()
-
-        return x
+        out = x.cpu()
+        return out
 
     def save(self, save_path: str):
         dir_name = os.path.dirname(save_path)

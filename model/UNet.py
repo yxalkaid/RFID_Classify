@@ -33,6 +33,7 @@ class UNet(nn.Module):
         # 首部
         self.head_block = nn.Sequential(
             ConvBlock(in_channels, features),
+            nn.InstanceNorm2d(features),
         )
 
         # 编码器

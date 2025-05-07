@@ -47,6 +47,9 @@ class ClassifyModelWorker:
             running_corrects = 0
 
             print(f"Epoch [{epoch+1}/{epochs}] begin...")
+            if scheduler is not None:
+                print(f"Learning rate: {scheduler.get_last_lr()[0]:.6f}")
+
             # 设置进度条
             train_progress = tqdm(
                 train_loader,
@@ -99,10 +102,10 @@ class ClassifyModelWorker:
                     logger.add_scalar("eval/loss", eval_loss, epoch + 1)
                     logger.add_scalar("eval/acc", eval_acc, epoch + 1)
 
-            print("=" * 30)
             if scheduler is not None:
                 scheduler.step()
-                print(f"Learning rate: {scheduler.get_last_lr()[0]:.6f}")
+
+            print("=" * 30)
         if enable_board and logger:
             logger.close()
 
