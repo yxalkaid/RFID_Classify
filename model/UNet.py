@@ -16,6 +16,7 @@ class UNet(nn.Module):
         init_features=32,
         num_classes=10,
         embed_dim=128,
+        num_heads=4,
     ):
         super().__init__()
 
@@ -37,8 +38,8 @@ class UNet(nn.Module):
         # 编码器
         self.encoder = nn.ModuleList(
             [
-                DownSample(features, features * 2, embed_dim),
-                DownSample(features * 2, features * 4, embed_dim),
+                DownSample(features, features * 2, embed_dim, num_heads=num_heads),
+                DownSample(features * 2, features * 4, embed_dim, num_heads=num_heads),
             ]
         )
 
@@ -52,8 +53,8 @@ class UNet(nn.Module):
         # 解码器
         self.decoder = nn.ModuleList(
             [
-                UpSample(features * 4, features * 2, embed_dim),
-                UpSample(features * 2, features, embed_dim),
+                UpSample(features * 4, features * 2, embed_dim, num_heads=num_heads),
+                UpSample(features * 2, features, embed_dim, num_heads=num_heads),
             ]
         )
 

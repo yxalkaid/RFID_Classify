@@ -21,6 +21,7 @@ class CDModelWorker:
         train_loader: DataLoader,
         eval_loader: DataLoader = None,
         epochs=5,
+        scheduler=None,
     ):
         # 设置模型为训练模式
         self.model.train()
@@ -84,6 +85,9 @@ class CDModelWorker:
                 eval_loss = self.evaluate(eval_loader, criterion)
 
             print("=" * 30)
+            if scheduler is not None:
+                scheduler.step()
+                print(f"Learning rate: {scheduler.get_last_lr()[0]:.6f}")
 
     def evaluate(self, eval_loader: DataLoader, criterion):
 

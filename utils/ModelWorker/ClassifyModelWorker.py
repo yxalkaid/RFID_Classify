@@ -22,6 +22,7 @@ class ClassifyModelWorker:
         train_loader: DataLoader,
         eval_loader: DataLoader = None,
         epochs=5,
+        scheduler=None,
         enable_board=False,
     ):
         """
@@ -99,6 +100,9 @@ class ClassifyModelWorker:
                     logger.add_scalar("eval/acc", eval_acc, epoch + 1)
 
             print("=" * 30)
+            if scheduler is not None:
+                scheduler.step()
+                print(f"Learning rate: {scheduler.get_last_lr()[0]:.6f}")
         if enable_board and logger:
             logger.close()
 
