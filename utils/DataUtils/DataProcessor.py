@@ -14,6 +14,7 @@ class DataProcessor:
         tags: dict,
         suffix_len=4,
         mask_dir=None,
+        processed_dir=None,
     ):
         """
         批量处理
@@ -25,6 +26,9 @@ class DataProcessor:
         if mask_dir and not os.path.exists(mask_dir):
             os.makedirs(mask_dir)
 
+        if processed_dir and not os.path.exists(processed_dir):
+            os.makedirs(processed_dir)
+
         for file_name in os.listdir(input_dir):
             if file_name.endswith(".csv"):
                 input_path = os.path.join(input_dir, file_name)
@@ -32,12 +36,16 @@ class DataProcessor:
                 mask_path = None
                 if mask_dir:
                     mask_path = os.path.join(mask_dir, file_name)
+                processed_path = None
+                if processed_dir:
+                    processed_path = os.path.join(processed_dir, file_name)
                 self.run_pipeline(
                     input_path,
                     output_path,
                     tags,
                     suffix_len,
                     mask_path=mask_path,
+                    processed_path=processed_path,
                 )
 
     def run_pipeline(
@@ -47,6 +55,7 @@ class DataProcessor:
         tags: dict,
         suffix_len=4,
         mask_path=None,
+        processed_path=None,
     ):
         """
         统一调度处理流程
@@ -63,6 +72,10 @@ class DataProcessor:
         # 数据预处理
         df = self.expand_to_table(raw_data, tags, suffix_len)
         df = self.convert_to_relative_time(df)
+
+        # 保存预处理结果
+        if processed_path:
+            df.to_csv(processed_path, index=False)
 
         # 掩码处理分支
         if mask_path:
@@ -194,7 +207,7 @@ class DataProcessor:
         df["time"] = pd.to_datetime(df["time"])
         start_time = df["time"].iloc[0]
         delta = df["time"] - start_time
-        df["time"] = (delta.dt.total_seconds() * 1e6).astype(int)  # 转换为微秒
+        df["time"] = (delta.dt.total_seconds() * 1e3).astype(int)  # 转换为毫秒
         return df
 
     def generate_mask(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -261,11 +274,8 @@ class DataProcessor:
         if window_ms <= 0:
             raise ValueError("窗口大小必须为正整数")
 
-        # 将时间窗口转换为微秒
-        window_us = window_ms * 1000
-
         # 按时间窗口分组并聚合
-        df["time"] = df["time"] // window_us
+        df["time"] = df["time"] // window_ms
         grouped = df.groupby("time").agg(
             {
                 "time": "first",
@@ -291,15 +301,37 @@ class DataProcessor:
         if window_ms <= 0:
             raise ValueError("窗口大小必须为正整数")
 
-        # 将时间窗口转换为微秒
-        window_us = window_ms * 1000
-
         # 按时间窗口分组并聚合
-        df["time"] = df["time"] // window_us
+        df["time"] = df["time"] // window_ms
         grouped = df.groupby("time").agg(
             {
                 "time": "first",
                 **{col: "max" for col in df.columns if col != "time"},
+            }
+        )
+
+        # 获取完整的time范围
+        full_time_range = range(int(grouped.index.max()) + 1)
+
+        # 重新索引以填充缺失的time行
+        grouped = grouped.reindex(full_time_range, fill_value=0)
+        grouped["time"] = grouped.index  # 确保time列与索引一致
+
+        return grouped
+
+    def count_in_window(self, df: pd.DataFrame, window_ms: int = 125) -> pd.DataFrame:
+        """
+        统计每个时间窗口内的数据条数
+        """
+        if window_ms <= 0:
+            raise ValueError("窗口大小必须为正整数")
+
+        # 按时间窗口分组并聚合
+        df["time"] = df["time"] // window_ms
+        grouped = df.groupby("time").agg(
+            {
+                "time": "first",
+                **{col: "count" for col in df.columns if col != "time"},
             }
         )
 
