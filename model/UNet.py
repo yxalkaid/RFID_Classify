@@ -2,7 +2,7 @@ import torch
 from torch import nn
 
 from .EmbeddingBlock import EmbeddingBlock
-from .Block import ConvBlock, DownSample, UpSample
+from .Block import DownSample, UpSample, StageBlock, ConvBlock, SelfAttention
 
 
 class UNet(nn.Module):
@@ -33,29 +33,34 @@ class UNet(nn.Module):
         # 首部
         self.head_block = nn.Sequential(
             ConvBlock(in_channels, features),
-            nn.InstanceNorm2d(features),
         )
 
         # 编码器
         self.encoder = nn.ModuleList(
             [
-                DownSample(features, features * 2, embed_dim, num_heads=num_heads),
-                DownSample(features * 2, features * 4, embed_dim, num_heads=num_heads),
+                DownSample(features, features * 2),
+                StageBlock(features * 2, features * 2, embed_dim, num_heads=num_heads),
+                DownSample(features * 2, features * 4),
+                StageBlock(features * 4, features * 4, embed_dim, num_heads=num_heads),
             ]
         )
 
+        middle_features = features * 4
         # 中间瓶颈层
         self.bottleneck = nn.Sequential(
-            ConvBlock(features * 4, features * 4),
-            ConvBlock(features * 4, features * 4),
-            ConvBlock(features * 4, features * 4),
+            ConvBlock(middle_features, middle_features),
+            # ConvBlock(middle_features, middle_features),
+            SelfAttention(middle_features, num_heads=num_heads),
+            ConvBlock(middle_features, middle_features),
         )
 
         # 解码器
         self.decoder = nn.ModuleList(
             [
-                UpSample(features * 4, features * 2, embed_dim, num_heads=num_heads),
-                UpSample(features * 2, features, embed_dim, num_heads=num_heads),
+                UpSample(features * 4, features * 2),
+                StageBlock(features * 4, features * 2, embed_dim, num_heads=num_heads),
+                UpSample(features * 2, features),
+                StageBlock(features * 2, features, embed_dim, num_heads=num_heads),
             ]
         )
 
@@ -69,22 +74,30 @@ class UNet(nn.Module):
         # 生成联合嵌入
         embed = self.embedder(time, condition)
 
-        skip_group = []
-
         # 首部
         enc_x = self.head_block(x)
 
+        skip_group = [enc_x]
+
         # 编码器路径
         for down in self.encoder:
-            skip_group.append(enc_x)
-            enc_x = down(enc_x, embed)
+            if isinstance(down, DownSample):  # 下采样
+                enc_x = down(enc_x)
+            else:
+                enc_x = down(enc_x, embed)
+                skip_group.append(enc_x)
+
+        skip_group.pop()
 
         # 中间瓶颈层
         dec_x = self.bottleneck(enc_x)
 
         # 解码器路径
         for up in self.decoder:
-            dec_x = up(dec_x, embed, skip_group.pop())
+            if isinstance(up, UpSample):  # 上采样
+                dec_x = up(dec_x)
+            else:
+                dec_x = up(dec_x, embed, skip_group.pop())
 
         # 尾部
         out = self.tail_block(dec_x)

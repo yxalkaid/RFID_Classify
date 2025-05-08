@@ -8,20 +8,18 @@ class DownSample(nn.Module):
     下采样块
     """
 
-    def __init__(self, in_channels, out_channels, embed_dim=128, num_heads=4):
+    def __init__(self, in_channels, out_channels, kernel_size=2):
         super().__init__()
 
-        self.down = nn.MaxPool2d(2, 2)
+        stride = kernel_size
+        self.down = nn.Sequential(
+            nn.Conv2d(
+                in_channels, out_channels, kernel_size=kernel_size, stride=stride
+            ),
+        )
 
-        self.res = ResidualBlock(in_channels, out_channels, embed_dim=embed_dim)
-        self.conv = ConvBlock(out_channels, out_channels)
-        self.atten = SelfAttention(out_channels, num_heads=num_heads)
-
-    def forward(self, x, embed):
+    def forward(self, x):
         x = self.down(x)
-        x = self.res(x, embed)
-        x = self.conv(x)
-        x = self.atten(x)
         return x
 
 
@@ -30,18 +28,36 @@ class UpSample(nn.Module):
     上采样块
     """
 
-    def __init__(self, in_channels, out_channels, embed_dim=128, num_heads=4):
+    def __init__(self, in_channels, out_channels, kernel_size=2):
         super().__init__()
 
-        self.up = nn.ConvTranspose2d(in_channels, out_channels, kernel_size=2, stride=2)
+        stride = kernel_size
+        self.up = nn.Sequential(
+            nn.ConvTranspose2d(
+                in_channels, out_channels, kernel_size=kernel_size, stride=stride
+            ),
+        )
+
+    def forward(self, x):
+        x = self.up(x)
+        return x
+
+
+class StageBlock(nn.Module):
+    """
+    阶段块
+    """
+
+    def __init__(self, in_channels, out_channels, embed_dim=128, num_heads=4):
+        super().__init__()
 
         self.res = ResidualBlock(in_channels, out_channels, embed_dim=embed_dim)
         self.conv = ConvBlock(out_channels, out_channels)
         self.atten = SelfAttention(out_channels, num_heads=num_heads)
 
     def forward(self, x, embed, skip=None):
-        x = self.up(x)
-        x = torch.cat([x, skip], dim=1)
+        if skip is not None:
+            x = torch.cat([x, skip], dim=1)
 
         x = self.res(x, embed)
         x = self.conv(x)
@@ -111,22 +127,6 @@ class ResidualBlock(nn.Module):
         return out
 
 
-# class SelfAttention(nn.Module):
-#     def __init__(self, in_channels, num_heads=4, num_groups=32):
-#         super().__init__()
-#         self.qkv = nn.Conv2d(in_channels, 3 * in_channels, 1)
-#         self.proj = nn.Conv2d(in_channels, in_channels, 1)
-
-#     def forward(self, x):
-#         B, C, H, W = x.shape
-#         q, k, v = self.qkv(x).chunk(3, dim=1)  # (B, C, H, W)
-#         q = q.softmax(dim=-2)  # 沿空间维度归一化
-#         k = k.softmax(dim=-1)
-#         context = torch.einsum("bchw,bcHW->bchW", k, v)
-#         out = torch.einsum("bchw,bchW->bchw", q, context)
-#         return self.proj(out)
-
-
 class SelfAttention(nn.Module):
     """
     自注意力块
@@ -135,12 +135,11 @@ class SelfAttention(nn.Module):
     def __init__(self, in_channels, num_heads=4, num_groups=32):
         super().__init__()
 
+        self.num_heads = num_heads
         self.norm = nn.GroupNorm(num_groups, in_channels)
         self.attn = nn.MultiheadAttention(
             embed_dim=in_channels,
             num_heads=num_heads,
-            kdim=in_channels,
-            vdim=in_channels,
             batch_first=False,
         )
         self.drop = nn.Dropout(0.1)
@@ -149,11 +148,13 @@ class SelfAttention(nn.Module):
         B, C, H, W = x.shape
         x_norm = self.norm(x)
         x_flat = x_norm.view(B, C, H * W).permute(2, 0, 1)
-        # attn_output, _ = self.attn(x_flat, x_flat, x_flat)
-        attn_output = F.scaled_dot_product_attention(x_flat, x_flat, x_flat)
-        out = self.drop(attn_output)
+        if self.num_heads > 1:
+            attn_output, _ = self.attn(x_flat, x_flat, x_flat)
+        else:
+            attn_output = F.scaled_dot_product_attention(x_flat, x_flat, x_flat)
+        # attn_output = self.drop(attn_output)
         out = attn_output.permute(1, 2, 0).view(B, C, H, W)
-        return out
+        return x + out
 
 
 class AdaGN(nn.Module):
