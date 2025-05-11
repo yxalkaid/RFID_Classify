@@ -13,9 +13,7 @@ class DownSample(nn.Module):
 
         stride = kernel_size
         self.down = nn.Sequential(
-            nn.Conv2d(
-                in_channels, out_channels, kernel_size=kernel_size, stride=stride
-            ),
+            nn.MaxPool2d(kernel_size),
         )
 
     def forward(self, x):
@@ -152,11 +150,8 @@ class SelfAttention(nn.Module):
             embed_dim=in_channels,
             num_heads=num_heads,
             batch_first=False,
+            dropout=0.1,
         )
-
-        self.drop = nn.Dropout(0.1)
-
-        self.pos_encoding = nn.Parameter(torch.randn(max_pos_encoding, 1, in_channels))
 
     def forward(self, x):
         B, C, H, W = x.shape
@@ -164,14 +159,12 @@ class SelfAttention(nn.Module):
 
         seq_len = H * W
         x_flat = x_norm.view(B, C, seq_len).permute(2, 0, 1)
-        x_flat = x_flat + self.pos_encoding[:seq_len]
 
         if self.num_heads > 1:
             attn_output, _ = self.attn(x_flat, x_flat, x_flat)
         else:
             attn_output = F.scaled_dot_product_attention(x_flat, x_flat, x_flat)
 
-        attn_output = self.drop(attn_output)
         out = attn_output.permute(1, 2, 0).view(B, C, H, W)
         return x + out
 

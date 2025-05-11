@@ -1,8 +1,8 @@
 import torch
 from torch import nn
 
-from .EmbeddingBlock import EmbeddingBlock
-from .Block import DownSample, UpSample, StageBlock, ConvBlock, SelfAttention
+from ..EmbeddingBlock import EmbeddingBlock
+from .Block import DownSample, UpSample, StageBlock, ConvBlock
 
 
 class UNet(nn.Module):
@@ -39,13 +39,11 @@ class UNet(nn.Module):
         # 编码器
         self.encoder = nn.ModuleList(
             [
-                DownSample(features, features * 2),
+                DownSample(features, features),
+                StageBlock(features, features * 2, embed_dim, num_heads, num_groups),
+                DownSample(features * 2, features * 2),
                 StageBlock(
-                    features * 2, features * 2, embed_dim, num_heads, num_groups
-                ),
-                DownSample(features * 2, features * 4),
-                StageBlock(
-                    features * 4, features * 4, embed_dim, num_heads, num_groups
+                    features * 2, features * 4, embed_dim, num_heads, num_groups
                 ),
             ]
         )
@@ -54,7 +52,7 @@ class UNet(nn.Module):
         # 中间瓶颈层
         self.bottleneck = nn.Sequential(
             ConvBlock(middle_features, middle_features, num_groups=num_groups),
-            SelfAttention(middle_features, num_heads=num_heads, num_groups=num_groups),
+            ConvBlock(middle_features, middle_features, num_groups=num_groups),
             ConvBlock(middle_features, middle_features, num_groups=num_groups),
         )
 

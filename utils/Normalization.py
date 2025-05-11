@@ -26,3 +26,13 @@ class LogarithmicNorm:
     def __call__(self, x):
         out = torch.log(x + self.offset) / self.factor
         return out
+
+
+class TanhNorm:
+    def __init__(self, scale=1.0):
+        assert scale > 0, "scale must be greater than 0"
+        self.scale = scale
+
+    def __call__(self, x):
+        out = torch.tanh(x * self.scale)
+        return out

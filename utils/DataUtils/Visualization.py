@@ -1,6 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns
 
 
 def plot_phase_scatter(csv_path, tag_name, limit=1000, offset=0):
@@ -210,4 +211,24 @@ def plot_3d_line(
     # ax.view_init(elev=20, azim=-20)
 
     plt.tight_layout()
+    plt.show()
+
+
+def plot_density(csv_path, tag_name):
+    """
+    绘制密度图
+    """
+
+    df = pd.read_csv(csv_path)
+    if tag_name not in df.columns:
+        raise ValueError(f"列 '{tag_name}' 不存在于 CSV 文件中！")
+    column_data = df[tag_name].dropna()
+
+    plt.figure(figsize=(8, 6))
+    sns.kdeplot(column_data, fill=True, color="blue")
+
+    plt.title(f"{tag_name} Density Distribution")
+    plt.xlabel(tag_name)
+    plt.ylabel("Density")
+
     plt.show()

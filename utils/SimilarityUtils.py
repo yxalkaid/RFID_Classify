@@ -63,6 +63,33 @@ class FID_Dataset(Dataset):
         return len(self.datas)
 
 
+def filter_datas(dataset, target_class):
+    """
+    筛选出数据集中指定类别的数据。
+
+    参数:
+        dataset: 自定义数据集对象，需包含 `datas` (Tensor) 和 `labels` (Tensor) 属性。
+        target_class: 目标类别标签（整数）。
+
+    返回:
+        filtered_dataset: 筛选后的新数据集对象。
+    """
+    # 检查数据集是否包含必要属性
+    if not hasattr(dataset, "datas") or not hasattr(dataset, "labels"):
+        raise AttributeError("数据集必须包含 `datas` 和 `labels` 属性")
+
+    # 检查目标类别是否存在
+    unique_classes = torch.unique(dataset.labels)
+    if target_class not in unique_classes:
+        raise ValueError(f"目标类别 {target_class} 不存在于数据集中")
+
+    # 生成布尔掩码筛选数据
+    mask = dataset.labels == target_class
+    filtered_datas = dataset.datas[mask]
+
+    return filtered_datas
+
+
 def extract_inception_features(
     dataset: Union[FID_Dataset, DataLoader],
     batch_size: int = 32,
