@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from ..EmbeddingBlock import EmbeddingBlock
+from .EmbeddingBlock import EmbeddingBlock
 from .Block import DownSample, UpSample, StageBlock, ConvBlock
 
 
