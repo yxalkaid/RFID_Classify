@@ -39,23 +39,26 @@ class UNet(nn.Module):
         # 编码器
         self.encoder = nn.ModuleList(
             [
+                StageBlock(features, features, embed_dim, num_heads, num_groups),
                 DownSample(features, features * 2),
                 StageBlock(
                     features * 2, features * 2, embed_dim, num_heads, num_groups
                 ),
                 DownSample(features * 2, features * 4),
-                StageBlock(
-                    features * 4, features * 4, embed_dim, num_heads, num_groups
-                ),
             ]
         )
 
         middle_features = features * 4
         # 中间瓶颈层
-        self.bottleneck = nn.Sequential(
-            ConvBlock(middle_features, middle_features, num_groups=num_groups),
-            SelfAttention(middle_features, num_heads=num_heads, num_groups=num_groups),
-            ConvBlock(middle_features, middle_features, num_groups=num_groups),
+        self.bottleneck = nn.ModuleList(
+            [
+                # ConvBlock(middle_features, middle_features, num_groups=num_groups),
+                ResidualBlock(middle_features, middle_features, num_groups=num_groups),
+                SelfAttention(
+                    middle_features, num_heads=num_heads, num_groups=num_groups
+                ),
+                ResidualBlock(middle_features, middle_features, num_groups=num_groups),
+            ]
         )
 
         # 解码器
@@ -72,8 +75,7 @@ class UNet(nn.Module):
 
         # 尾部
         self.tail_block = nn.Sequential(
-            # nn.Conv2d(features, out_channels, kernel_size=3, padding=1),
-            nn.Conv2d(features, out_channels, kernel_size=1),
+            nn.Conv2d(features, out_channels, kernel_size=3, padding=1),
         )
 
     def forward(self, x, time, condition):
@@ -84,7 +86,7 @@ class UNet(nn.Module):
         # 首部
         enc_x = self.head_block(x)
 
-        skip_group = [enc_x]
+        skip_group = []
 
         # 编码器路径
         for down in self.encoder:
@@ -94,10 +96,14 @@ class UNet(nn.Module):
                 enc_x = down(enc_x, embed)
                 skip_group.append(enc_x)
 
-        skip_group.pop()
-
         # 中间瓶颈层
-        dec_x = self.bottleneck(enc_x)
+        # dec_x = self.bottleneck(enc_x)
+        dec_x = enc_x
+        for bot in self.bottleneck:
+            if isinstance(bot, ResidualBlock):
+                dec_x = bot(dec_x, embed)
+            else:
+                dec_x = bot(dec_x)
 
         # 解码器路径
         for up in self.decoder:

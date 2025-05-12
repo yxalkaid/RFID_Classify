@@ -138,7 +138,7 @@ class SelfAttention(nn.Module):
     自注意力块
     """
 
-    def __init__(self, in_channels, num_heads=4, max_pos_encoding=1024, num_groups=32):
+    def __init__(self, in_channels, num_heads=4, num_groups=32):
         super().__init__()
 
         assert (
@@ -153,10 +153,7 @@ class SelfAttention(nn.Module):
             num_heads=num_heads,
             batch_first=False,
         )
-
         self.drop = nn.Dropout(0.1)
-
-        self.pos_encoding = nn.Parameter(torch.randn(max_pos_encoding, 1, in_channels))
 
     def forward(self, x):
         B, C, H, W = x.shape
@@ -164,7 +161,6 @@ class SelfAttention(nn.Module):
 
         seq_len = H * W
         x_flat = x_norm.view(B, C, seq_len).permute(2, 0, 1)
-        x_flat = x_flat + self.pos_encoding[:seq_len]
 
         if self.num_heads > 1:
             attn_output, _ = self.attn(x_flat, x_flat, x_flat)
@@ -174,6 +170,51 @@ class SelfAttention(nn.Module):
         attn_output = self.drop(attn_output)
         out = attn_output.permute(1, 2, 0).view(B, C, H, W)
         return x + out
+
+
+class TransformerBlock(nn.Module):
+    def __init__(self, in_channels, num_heads=4):
+        super().__init__()
+        assert (
+            in_channels % num_heads == 0
+        ), "in_channels must be divisible by num_heads"
+
+        self.attn = nn.MultiheadAttention(
+            embed_dim=in_channels,
+            num_heads=num_heads,
+            batch_first=False,
+            dropout=0.1,
+        )
+        self.drop = nn.Dropout(0.1)
+        self.norm1 = nn.LayerNorm(in_channels)
+
+        self.mlp = nn.Sequential(
+            nn.Linear(in_channels, in_channels * 4),
+            nn.GELU(),
+            nn.Linear(in_channels * 4, in_channels),
+            nn.Dropout(0.1),
+        )
+        self.norm2 = nn.LayerNorm(in_channels)
+
+    def forward(self, x):
+        B, C, H, W = x.shape
+
+        seq_len = H * W
+        x_flat = x.view(B, C, seq_len).permute(2, 0, 1)
+
+        # MHSA + 残差连接
+        attn_out, _ = self.attn(x_flat, x_flat, x_flat)
+        attn_out = self.drop(attn_out)
+        mid = x_flat + attn_out
+        mid = self.norm1(mid)
+
+        # FFN + 残差连接
+        mlp_out = self.mlp(mid)
+        out = mid + mlp_out
+        out = self.norm2(out)
+
+        out = out.permute(1, 2, 0).view(B, C, H, W)
+        return out
 
 
 class AdaGN(nn.Module):
