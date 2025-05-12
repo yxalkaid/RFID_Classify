@@ -41,21 +41,26 @@ class EmbeddingBlock(nn.Module):
         # 时间步嵌入
         self.time_embed = nn.Sequential(
             PositionalEncoding(time_embed_dim),
-            nn.Linear(time_embed_dim, time_embed_dim // 2),
+            nn.Linear(time_embed_dim, time_embed_dim),
             nn.SiLU(),
-            nn.Linear(time_embed_dim // 2, time_embed_dim),
+            nn.LayerNorm(time_embed_dim),
         )
 
         # 条件嵌入
         self.class_embed = nn.Sequential(
-            nn.Embedding(num_classes, class_embed_dim // 2),
+            nn.Embedding(num_classes, class_embed_dim),
             nn.SiLU(),
-            nn.Linear(class_embed_dim // 2, class_embed_dim),
+            nn.Linear(class_embed_dim, class_embed_dim),
+            nn.LayerNorm(class_embed_dim),
         )
 
         # 联合嵌入
-        if output_dim != (time_embed_dim + class_embed_dim):
-            self.combine_proj = nn.Linear(time_embed_dim + class_embed_dim, output_dim)
+        combined_dim = time_embed_dim + class_embed_dim
+        if output_dim != combined_dim:
+            self.combine_proj = nn.Sequential(
+                nn.Linear(time_embed_dim + class_embed_dim, output_dim),
+                nn.LayerNorm(output_dim),
+            )
         else:
             self.combine_proj = nn.Identity()
 
