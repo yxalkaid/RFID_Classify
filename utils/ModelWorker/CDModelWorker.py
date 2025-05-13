@@ -30,6 +30,10 @@ class CDModelWorker:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(device)
 
+        mse_flag = False
+        if isinstance(criterion, nn.MSELoss):
+            mse_flag = True
+
         print(f"Model will be trained on {device}")
         print("=" * 30)
 
@@ -61,7 +65,7 @@ class CDModelWorker:
 
                 # 随机选择时间步
                 time = torch.randint(
-                    1, self.model.timesteps, (batch_size,), device=device
+                    1, self.model.timesteps + 1, (batch_size,), device=device
                 ).long()
 
                 # 正向过程
@@ -71,7 +75,11 @@ class CDModelWorker:
                 pred_noise = self.model(x=xt, time=time, condition=labels)
 
                 # 计算损失
-                loss = criterion(pred_noise, noise)
+                if mse_flag:
+                    loss = criterion(pred_noise, noise)
+                else:
+                    alpha_bar_t = self.model.scheduler.get_alpha_bar(time)
+                    loss = criterion(pred_noise, noise, alpha_bar_t)
 
                 # 反向传播和优化
                 loss.backward()
@@ -108,6 +116,10 @@ class CDModelWorker:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(device)
 
+        mse_flag = False
+        if isinstance(criterion, nn.MSELoss):
+            mse_flag = True
+
         running_loss = 0.0
 
         # 禁用梯度计算
@@ -125,7 +137,7 @@ class CDModelWorker:
 
                 # 随机选择时间步
                 time = torch.randint(
-                    1, self.model.timesteps, (batch_size,), device=device
+                    1, self.model.timesteps + 1, (batch_size,), device=device
                 ).long()
 
                 # 正向过程
@@ -135,7 +147,11 @@ class CDModelWorker:
                 pred_noise = self.model(x=xt, time=time, condition=labels)
 
                 # 计算损失
-                loss = criterion(pred_noise, noise)
+                if mse_flag:
+                    loss = criterion(pred_noise, noise)
+                else:
+                    alpha_bar_t = self.model.scheduler.get_alpha_bar(time)
+                    loss = criterion(pred_noise, noise, alpha_bar_t)
 
                 # 累加损失
                 running_loss += loss.item() * batch_size
@@ -159,7 +175,7 @@ class CDModelWorker:
         self.model.to(device)
 
         # 设置初始时间步和条件向量
-        time = time if time > 0 else self.model.timesteps - 1
+        time = time if time > 0 else self.model.timesteps
         c = torch.tensor([condition] * count, device=device)
 
         with torch.no_grad():

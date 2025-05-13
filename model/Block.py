@@ -152,8 +152,8 @@ class SelfAttention(nn.Module):
             embed_dim=in_channels,
             num_heads=num_heads,
             batch_first=False,
+            dropout=0.1,
         )
-        self.drop = nn.Dropout(0.1)
 
     def forward(self, x):
         B, C, H, W = x.shape
@@ -167,7 +167,6 @@ class SelfAttention(nn.Module):
         else:
             attn_output = F.scaled_dot_product_attention(x_flat, x_flat, x_flat)
 
-        attn_output = self.drop(attn_output)
         out = attn_output.permute(1, 2, 0).view(B, C, H, W)
         return x + out
 

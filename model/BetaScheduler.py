@@ -11,7 +11,8 @@ class LinearBetaScheduler(nn.Module):
     def __init__(self, beta_start=1e-4, beta_end=0.02, timesteps=1000):
         super().__init__()
 
-        self.timesteps = timesteps + 1
+        # 最大时间步，表示时间步可取范围为0(包含)至timesteps(包含)
+        self.timesteps = timesteps
 
         # 在首位插入 β_0 = 0，形状变为 (T+1,)，使索引与时间步t对齐
         betas = torch.cat(

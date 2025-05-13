@@ -15,6 +15,7 @@ class DataProcessor:
         suffix_len=4,
         mask_dir=None,
         processed_dir=None,
+        interpolation=False,
     ):
         """
         批量处理
@@ -46,6 +47,7 @@ class DataProcessor:
                     suffix_len,
                     mask_path=mask_path,
                     processed_path=processed_path,
+                    interpolation=interpolation,
                 )
 
     def run_pipeline(
@@ -56,6 +58,7 @@ class DataProcessor:
         suffix_len=4,
         mask_path=None,
         processed_path=None,
+        interpolation=False,
     ):
         """
         统一调度处理流程
@@ -90,6 +93,10 @@ class DataProcessor:
             # 检查维度匹配
             if mask.shape != data.shape:
                 raise RuntimeError("数据处理出错，掩码与数据维度不匹配")
+
+        if mask_path and interpolation:
+            # 插值处理
+            data = self.linear_interpolation(data, mask)
 
         # 保存最终结果
         data.to_csv(output_path, index=False)
@@ -127,7 +134,6 @@ class DataProcessor:
         丢弃数据的头部和尾部指定秒数的数据
         """
 
-        # TODO: 未完成
         head_sec = max(0, head_sec)
         tail_sec = max(0, tail_sec)
         if head_sec == 0 and tail_sec == 0:
@@ -318,6 +324,36 @@ class DataProcessor:
         grouped["time"] = grouped.index  # 确保time列与索引一致
 
         return grouped
+
+    def linear_interpolation(
+        self, data_df: pd.DataFrame, mask_df: pd.DataFrame
+    ) -> pd.DataFrame:
+        """
+        线性插值
+        """
+        # 验证数据形状是否相同
+        if data_df.shape != mask_df.shape:
+            raise ValueError("数据文件和掩码文件的形状不一致！")
+
+        # 将 time 列设置为索引
+        data_df = data_df.set_index("time")
+        mask_df = mask_df.set_index("time")
+
+        # 将需要插值的位置标记为 NaN
+        data_with_nan = data_df.where(mask_df == 1, pd.NA)
+
+        # 使用 Pandas 的 interpolate 方法进行线性插值
+        interpolated_df = data_with_nan.interpolate(
+            method="linear", axis=0, limit_direction="both"
+        )
+
+        # 保留两位小数
+        interpolated_df = interpolated_df.round(2)
+
+        # 将 time 列恢复为普通列
+        interpolated_df = interpolated_df.reset_index()
+
+        return interpolated_df
 
     def count_in_window(self, df: pd.DataFrame, window_ms: int = 125) -> pd.DataFrame:
         """
