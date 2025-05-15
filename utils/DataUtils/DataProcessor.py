@@ -254,7 +254,7 @@ class DataProcessor:
         channel_cols = [f"{col}-channel" for col in phase_cols]
 
         # 填充空缺值：对相位列和信道列先后进行前向填充和后向填充
-        df[phase_cols + channel_cols] = df[phase_cols + channel_cols].ffill().bfill()
+        df[phase_cols + channel_cols] = df[phase_cols + channel_cols].ffill()
 
         # 遍历相位列，计算调整后的差值
         for col in phase_cols:
@@ -264,7 +264,7 @@ class DataProcessor:
             diff = df[col].diff()
 
             # 创建条件掩码：当前行与上一行的 channel 值相同
-            mask = df[channel_col] == df[channel_col].shift(1)
+            mask = df[channel_col] == (df[channel_col].shift(1))
 
             # 调整差值范围并添加到结果字典中
             result_data[col] = diff.where(mask, 0).apply(adjust_range)

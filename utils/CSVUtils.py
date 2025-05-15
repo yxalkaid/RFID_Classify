@@ -1,4 +1,6 @@
 import pandas as pd
+import os
+import torch
 
 
 def load_data(input_path: str):
@@ -39,11 +41,6 @@ def get_zero_rows(csv_path, start_col=0):
     selected_cols = df.iloc[:, start_col:]
     zero_rows = df[selected_cols.eq(0).all(axis=1)].index.tolist()
     return zero_rows
-
-
-import pandas as pd
-import os
-import torch
 
 
 def save_samples_as_csv(datas, output_dir, start_index=-1, include_header=True):

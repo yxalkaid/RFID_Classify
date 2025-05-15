@@ -72,8 +72,7 @@ class UNet(nn.Module):
 
         # 尾部
         self.tail_block = nn.Sequential(
-            # nn.Conv2d(features, out_channels, kernel_size=3, padding=1),
-            nn.Conv2d(features, out_channels, kernel_size=1),
+            nn.Conv2d(features, out_channels, kernel_size=3, padding=1),
         )
 
     def forward(self, x, time, condition):

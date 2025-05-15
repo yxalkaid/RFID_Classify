@@ -178,9 +178,12 @@ class AdaGN(nn.Module):
         super().__init__()
         self.norm = nn.GroupNorm(num_groups, in_channels)
         self.embed_proj = nn.Sequential(
-            nn.SiLU(),
             nn.Linear(embed_dim, 2 * in_channels),
+            nn.SiLU(),
         )
+
+        nn.init.zeros_(self.embed_proj[0].weight)
+        nn.init.zeros_(self.embed_proj[0].bias)
 
     def forward(self, x, embed):
         scale_shift = self.embed_proj(embed)  # (B, 2 * C)

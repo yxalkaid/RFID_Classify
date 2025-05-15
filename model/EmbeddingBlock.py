@@ -43,7 +43,6 @@ class EmbeddingBlock(nn.Module):
             PositionalEncoding(time_embed_dim),
             nn.Linear(time_embed_dim, time_embed_dim),
             nn.SiLU(),
-            nn.LayerNorm(time_embed_dim),
         )
 
         # 条件嵌入
@@ -51,7 +50,6 @@ class EmbeddingBlock(nn.Module):
             nn.Embedding(num_classes, class_embed_dim),
             nn.SiLU(),
             nn.Linear(class_embed_dim, class_embed_dim),
-            nn.LayerNorm(class_embed_dim),
         )
 
         # 联合嵌入
@@ -59,7 +57,6 @@ class EmbeddingBlock(nn.Module):
         if output_dim != combined_dim:
             self.combine_proj = nn.Sequential(
                 nn.Linear(time_embed_dim + class_embed_dim, output_dim),
-                nn.LayerNorm(output_dim),
             )
         else:
             self.combine_proj = nn.Identity()

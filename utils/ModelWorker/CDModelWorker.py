@@ -178,6 +178,7 @@ class CDModelWorker:
         time = time if time > 0 else self.model.timesteps
         c = torch.tensor([condition] * count, device=device)
 
+        print(f"Count: {count}, Condition: {condition}")
         with torch.no_grad():
             progress = tqdm(
                 reversed(range(1, time + 1)),
@@ -197,6 +198,7 @@ class CDModelWorker:
                 )
                 now_t -= 1
             progress.close()
+        print("=" * 30)
         out = x.cpu()
         return out
 
