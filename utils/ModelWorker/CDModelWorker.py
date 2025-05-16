@@ -176,7 +176,7 @@ class CDModelWorker:
 
         # 设置初始时间步和条件向量
         time = time if time > 0 else self.model.timesteps
-        c = torch.tensor([condition] * count, device=device)
+        c = torch.full((count,), condition, dtype=torch.long, device=device)
 
         print(f"Count: {count}, Condition: {condition}")
         with torch.no_grad():
@@ -188,7 +188,7 @@ class CDModelWorker:
             )
             x = torch.randn(count, *(self.model.input_shape), device=device)
             now_t = torch.full((count,), time, dtype=torch.long, device=device)
-            for t in progress:
+            for _ in progress:
                 prev_noise = self.model(x=x, time=now_t, condition=c)
                 x = self.model.reverse_process_DDPM(
                     xt=x,

@@ -19,6 +19,7 @@ ipython==9.0.2
 ipython_pygments_lexers==1.1.1
 jedi==0.19.2
 Jinja2==3.1.6
+joblib==1.4.2
 jupyter_client==8.6.3
 jupyter_core==5.7.2
 kiwisolver==1.4.8
@@ -47,12 +48,16 @@ pywin32==310
 PyYAML==6.0.2
 pyzmq==26.3.0
 requests==2.32.3
+scikit-learn==1.6.1
+scipy==1.15.2
+seaborn==0.13.2
 setuptools==78.1.0
 six==1.17.0
 stack-data==0.6.3
 sympy==1.13.1
 tensorboard==2.19.0
 tensorboard-data-server==0.7.2
+threadpoolctl==3.6.0
 torch @ file:///D:/Downloads/torch-2.5.1%2Bcu124-cp312-cp312-win_amd64.whl#sha256=3c3f705fb125edbd77f9579fa11a138c56af8968a10fc95834cdd9fdf4f1f1a6
 torch-tb-profiler==0.4.3
 torchkeras==4.0.4
