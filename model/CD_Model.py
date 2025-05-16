@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from .UNet import UNet
+from .Diffusion.UNet import UNet
 from .BetaScheduler import LinearBetaScheduler
 
 
