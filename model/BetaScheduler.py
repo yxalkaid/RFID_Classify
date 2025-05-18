@@ -1,23 +1,26 @@
 import torch
-
 from torch import nn
 
 
-class LinearBetaScheduler(nn.Module):
+class BetaScheduler(nn.Module):
     """
-    线性Beta调度器
+    Beta调度器基类
     """
 
-    def __init__(self, beta_start=1e-4, beta_end=0.02, timesteps=1000):
+    def __init__(self, timesteps):
         super().__init__()
 
         # 最大时间步，表示时间步可取范围为0(包含)至timesteps(包含)
         self.timesteps = timesteps
 
-        # 在首位插入 β_0 = 0，形状变为 (T+1,)，使索引与时间步t对齐
-        betas = torch.cat(
-            [torch.zeros(1), torch.linspace(beta_start, beta_end, timesteps)]
-        )
+    def init_scheduler(self, betas):
+        """
+        初始化Beta调度器
+        """
+
+        assert len(betas) == self.timesteps + 1
+
+        # β_t
         self.register_buffer("betas", betas)
 
         # α_t = 1 - β_t
@@ -66,3 +69,48 @@ class LinearBetaScheduler(nn.Module):
     def get_sqrt_recip_alpha(self, t):
         res = self.sqrt_recip_alphas[t].view(-1, 1, 1, 1)
         return res
+
+
+class LinearBetaScheduler(BetaScheduler):
+    """
+    线性Beta调度器
+    """
+
+    def __init__(self, timesteps=1000, beta_start=1e-4, beta_end=0.02):
+        super().__init__(timesteps)
+
+        # 在首位插入 β_0 = 0，对齐索引与时间步
+        betas = torch.cat(
+            [torch.zeros(1), torch.linspace(beta_start, beta_end, timesteps)]
+        )
+
+        self.init_scheduler(betas)
+
+
+class CosineBetaScheduler(BetaScheduler):
+    """
+    余弦Beta调度器
+    """
+
+    def __init__(self, timesteps=1000, s=0.008):
+        super().__init__(timesteps)
+
+        # 生成时间步序列 [0, 1, ..., T]
+        t = torch.arange(timesteps + 1, dtype=torch.float32)
+
+        # 计算f_t
+        numerator = (t / timesteps + s) / (1 + s)
+        f_t = torch.cos((numerator * (torch.pi / 2))) ** 2
+
+        # 计算alphas_bar
+        denominator = f_t[0]
+        alphas_bar = f_t / denominator
+
+        # 计算betas
+        betas = 1 - (alphas_bar[1:] / alphas_bar[:-1])
+        betas = torch.clamp(betas, 0, 0.999)
+
+        # 在首位插入 β_0 = 0，对齐索引与时间步
+        betas = torch.cat([torch.zeros(1), betas])
+
+        self.init_scheduler(betas)

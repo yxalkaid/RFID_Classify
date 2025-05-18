@@ -136,7 +136,7 @@ class SelfAttention(nn.Module):
     自注意力块
     """
 
-    def __init__(self, in_channels, num_heads=4, max_pos_encoding=1024, num_groups=32):
+    def __init__(self, in_channels, num_heads=4, num_groups=32):
         super().__init__()
 
         assert (
@@ -166,7 +166,7 @@ class SelfAttention(nn.Module):
             attn_output = F.scaled_dot_product_attention(x_flat, x_flat, x_flat)
 
         out = attn_output.permute(1, 2, 0).view(B, C, H, W)
-        return x + out
+        return out
 
 
 class AdaGN(nn.Module):

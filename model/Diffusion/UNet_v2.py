@@ -2,7 +2,8 @@ import torch
 from torch import nn
 
 from .EmbeddingBlock import EmbeddingBlock
-from .Block import *
+from .Block import DownSample, UpSample, ConvBlock, ResidualBlock, SelfAttention
+from .Block import StageBlock_v2 as StageBlock
 
 
 class UNet(nn.Module):

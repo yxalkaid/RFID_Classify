@@ -71,6 +71,34 @@ class StageBlock(nn.Module):
         return x
 
 
+class StageBlock_v2(nn.Module):
+    """
+    阶段块
+    """
+
+    def __init__(
+        self, in_channels, out_channels, embed_dim=128, num_heads=4, num_groups=32
+    ):
+        super().__init__()
+
+        self.conv = ConvBlock(in_channels, out_channels, num_groups=num_groups)
+        self.res = ResidualBlock(
+            out_channels, out_channels, embed_dim=embed_dim, num_groups=num_groups
+        )
+        self.atten = SelfAttention(
+            out_channels, num_heads=num_heads, num_groups=num_groups
+        )
+
+    def forward(self, x, embed, skip=None):
+        if skip is not None:
+            x = torch.cat([x, skip], dim=1)
+
+        x = self.conv(x)
+        x = self.res(x, embed)
+        x = self.atten(x)
+        return x
+
+
 class ConvBlock(nn.Module):
     """
     卷积块
@@ -168,7 +196,7 @@ class SelfAttention(nn.Module):
             attn_output = F.scaled_dot_product_attention(x_flat, x_flat, x_flat)
 
         out = attn_output.permute(1, 2, 0).view(B, C, H, W)
-        return x + out
+        return out
 
 
 class TransformerBlock(nn.Module):
