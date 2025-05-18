@@ -2,6 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
+import torch
 
 
 def plot_phase_scatter(csv_path, tag_name, limit=1000, offset=0):
@@ -283,6 +284,34 @@ def plot_confusion_matrix(
     ax.set_yticks(np.arange(len(class_names)) + 0.5)
     ax.set_xticklabels(class_names, rotation=0)
     ax.set_yticklabels(class_names, rotation=0)
+
+    # 调整布局
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_curves(
+    group: dict,
+):
+    plt.figure(figsize=(10, 6))
+
+    # 遍历字典中的每个张量并绘制
+    for label, tensor in group.items():
+        # 处理张量（移除梯度、转CPU、转numpy）
+        if isinstance(tensor, torch.Tensor):
+            data = tensor.detach().cpu().numpy()
+        else:
+            data = tensor
+
+        # 绘制曲线
+        plt.plot(data, label=label)
+
+    # 添加图表元素
+    plt.title("Curves")
+    plt.xlabel("X")
+    plt.ylabel("Y")
+    plt.legend()
+    plt.grid(True)
 
     # 调整布局
     plt.tight_layout()
