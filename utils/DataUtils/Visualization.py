@@ -232,3 +232,58 @@ def plot_density(csv_path, tag_name):
     plt.ylabel("Density")
 
     plt.show()
+
+
+def plot_confusion_matrix(
+    confusion_matrix,
+    class_names: list,
+    normalize: str = None,  # Options: None, 'row', 'col', 'all'
+):
+    """
+    可视化混淆矩阵
+    输入矩阵为二维数组，行表示真实标签，列表示预测标签
+    """
+
+    H, W = confusion_matrix.shape
+    assert H == W, "Confusion matrix must be square"
+    assert (
+        len(class_names) == H
+    ), "Number of class names must match confusion matrix size"
+
+    # 归一化处理
+    cm = confusion_matrix.astype(np.float32)
+    normalize = normalize.lower()
+    if normalize == "row":
+        cm = cm / (cm.sum(axis=1, keepdims=True) + 1e-10)  # 行归一化
+    elif normalize == "col":
+        cm = cm / (cm.sum(axis=0, keepdims=True) + 1e-10)  # 列归一化
+    elif normalize == "all":
+        cm = cm / (cm.sum() + 1e-10)  # 全局归一化
+    elif normalize is not None:
+        raise ValueError("normalize 参数必须是 None, 'row', 'col' 或 'all'")
+
+    # 创建画布
+    plt.figure(figsize=(8, 6))
+
+    # 绘制热力图
+    ax = sns.heatmap(
+        cm,
+        annot=True,
+        fmt=".2%" if normalize else ".0f",
+        cmap="Blues",
+    )
+
+    # 设置标签和标题
+    ax.set_xlabel("Predicted Label")
+    ax.set_ylabel("True Label")
+    ax.set_title("Confusion Matrix")
+
+    # 设置坐标轴标签
+    ax.set_xticks(np.arange(len(class_names)) + 0.5)
+    ax.set_yticks(np.arange(len(class_names)) + 0.5)
+    ax.set_xticklabels(class_names, rotation=0)
+    ax.set_yticklabels(class_names, rotation=0)
+
+    # 调整布局
+    plt.tight_layout()
+    plt.show()
