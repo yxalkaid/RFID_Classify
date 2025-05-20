@@ -65,8 +65,12 @@ class CDModelWorker:
 
                 # 随机选择时间步
                 time = torch.randint(
-                    1, self.model.timesteps + 1, (batch_size,), device=device
-                ).long()
+                    1,
+                    self.model.timesteps + 1,
+                    (batch_size,),
+                    dtype=torch.long,
+                    device=device,
+                )
 
                 # 正向过程
                 xt, noise = self.model.forward_process(datas, time)
@@ -137,8 +141,12 @@ class CDModelWorker:
 
                 # 随机选择时间步
                 time = torch.randint(
-                    1, self.model.timesteps + 1, (batch_size,), device=device
-                ).long()
+                    1,
+                    self.model.timesteps + 1,
+                    (batch_size,),
+                    dtype=torch.long,
+                    device=device,
+                )
 
                 # 正向过程
                 xt, noise = self.model.forward_process(datas, time)

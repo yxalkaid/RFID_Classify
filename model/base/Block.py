@@ -186,9 +186,10 @@ class AdaGN(nn.Module):
         nn.init.zeros_(self.embed_proj[0].bias)
 
     def forward(self, x, embed):
+        x = self.norm(x)
+
         scale_shift = self.embed_proj(embed)  # (B, 2 * C)
         scale, shift = scale_shift[:, :, None, None].chunk(2, dim=1)
 
-        x = self.norm(x)
         out = x * (1 + scale) + shift
         return out
