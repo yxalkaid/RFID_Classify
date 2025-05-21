@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from .Diffusion.UNet import UNet
-from .BetaScheduler import LinearBetaScheduler
+from .BetaScheduler import BetaScheduler
 
 
 class CD_Model(nn.Module):
@@ -12,7 +12,7 @@ class CD_Model(nn.Module):
     def __init__(
         self,
         unet: UNet,
-        scheduler: LinearBetaScheduler,
+        scheduler: BetaScheduler,
     ):
         super().__init__()
         self.unet = unet

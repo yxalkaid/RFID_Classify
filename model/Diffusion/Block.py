@@ -173,14 +173,12 @@ class SelfAttention(nn.Module):
             in_channels % num_heads == 0
         ), "in_channels must be divisible by num_heads"
 
-        self.num_heads = num_heads
-
         self.norm = nn.GroupNorm(num_groups, in_channels)
         self.attn = nn.MultiheadAttention(
             embed_dim=in_channels,
             num_heads=num_heads,
             batch_first=False,
-            dropout=0.1,
+            dropout=0.05,
         )
 
     def forward(self, x):
@@ -190,10 +188,9 @@ class SelfAttention(nn.Module):
         seq_len = H * W
         x_flat = x_norm.view(B, C, seq_len).permute(2, 0, 1)
 
-        if self.num_heads > 1:
-            attn_output, _ = self.attn(x_flat, x_flat, x_flat)
-        else:
-            attn_output = F.scaled_dot_product_attention(x_flat, x_flat, x_flat)
+        attn_output, _ = self.attn(x_flat, x_flat, x_flat)
+
+        # attn_output = x_flat + attn_output
 
         out = attn_output.permute(1, 2, 0).view(B, C, H, W)
         return out
