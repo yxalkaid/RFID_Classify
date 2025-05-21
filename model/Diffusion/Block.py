@@ -190,7 +190,7 @@ class SelfAttention(nn.Module):
 
         attn_output, _ = self.attn(x_flat, x_flat, x_flat)
 
-        # attn_output = x_flat + attn_output
+        attn_output = x_flat + attn_output
 
         out = attn_output.permute(1, 2, 0).view(B, C, H, W)
         return out

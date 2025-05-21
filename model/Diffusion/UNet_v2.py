@@ -53,12 +53,12 @@ class UNet(nn.Module):
         # 中间瓶颈层
         self.bottleneck = nn.ModuleList(
             [
-                # ConvBlock(middle_features, middle_features, num_groups=num_groups),
-                ResidualBlock(middle_features, middle_features, num_groups=num_groups),
+                ConvBlock(middle_features, middle_features, num_groups=num_groups),
                 SelfAttention(
                     middle_features, num_heads=num_heads, num_groups=num_groups
                 ),
-                ResidualBlock(middle_features, middle_features, num_groups=num_groups),
+                ConvBlock(middle_features, middle_features, num_groups=num_groups),
+                # ResidualBlock(middle_features, middle_features, num_groups=num_groups),
             ]
         )
 
