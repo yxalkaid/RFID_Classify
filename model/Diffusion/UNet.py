@@ -2,7 +2,8 @@ import torch
 from torch import nn
 
 from .EmbeddingBlock import EmbeddingBlock
-from .Block import *
+from .Block import DownSample, UpSample, ConvBlock, ResidualBlock, SelfAttention
+from .Block import StageBlock
 
 
 class UNet(nn.Module):
@@ -54,7 +55,7 @@ class UNet(nn.Module):
         # 中间瓶颈层
         self.bottleneck = nn.Sequential(
             ConvBlock(middle_features, middle_features, num_groups=num_groups),
-            SelfAttention(middle_features, num_heads=num_heads, num_groups=num_groups),
+            ConvBlock(middle_features, middle_features, num_groups=num_groups),
             ConvBlock(middle_features, middle_features, num_groups=num_groups),
         )
 
