@@ -70,14 +70,16 @@ def filter_datas(dataset, target_class):
     if not hasattr(dataset, "datas") or not hasattr(dataset, "labels"):
         raise AttributeError("数据集必须包含 `datas` 和 `labels` 属性")
 
+    datas, labels = dataset[:]
+
     # 检查目标类别是否存在
-    unique_classes = torch.unique(dataset.labels)
+    unique_classes = torch.unique(labels)
     if target_class not in unique_classes:
         raise ValueError(f"目标类别 {target_class} 不存在于数据集中")
 
     # 生成布尔掩码筛选数据
-    mask = dataset.labels == target_class
-    filtered_datas = dataset.datas[mask]
+    mask = labels == target_class
+    filtered_datas = datas[mask]
 
     return filtered_datas
 

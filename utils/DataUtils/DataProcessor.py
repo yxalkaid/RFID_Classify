@@ -16,6 +16,7 @@ class DataProcessor:
         mask_dir=None,
         processed_dir=None,
         interpolation=False,
+        method="mean",
     ):
         """
         批量处理
@@ -48,6 +49,7 @@ class DataProcessor:
                     mask_path=mask_path,
                     processed_path=processed_path,
                     interpolation=interpolation,
+                    method=method,
                 )
 
     def run_pipeline(
@@ -59,6 +61,7 @@ class DataProcessor:
         mask_path=None,
         processed_path=None,
         interpolation=False,
+        method="mean",
     ):
         """
         统一调度处理流程
@@ -87,7 +90,7 @@ class DataProcessor:
 
         # 数据处理分支
         data = self.cal_phase_diff(df)
-        data = self.downsample_data(data, window_ms)
+        data = self.downsample_data(data, window_ms, method)
 
         if mask_path:
             # 检查维度匹配
@@ -273,19 +276,23 @@ class DataProcessor:
         result_df = pd.DataFrame(result_data)
         return result_df
 
-    def downsample_data(self, df: pd.DataFrame, window_ms: int = 125) -> pd.DataFrame:
+    def downsample_data(
+        self, df: pd.DataFrame, window_ms: int = 125, method="mean"
+    ) -> pd.DataFrame:
         """
         按指定时间窗口对数据进行下采样
         """
         if window_ms <= 0:
             raise ValueError("窗口大小必须为正整数")
 
+        assert method in ["mean", "sum"], "method值应为mean或sum"
+
         # 按时间窗口分组并聚合
         df["time"] = df["time"] // window_ms
         grouped = df.groupby("time").agg(
             {
                 "time": "first",
-                **{col: "mean" for col in df.columns if col not in ["time"]},
+                **{col: method for col in df.columns if col not in ["time"]},
             }
         )
 
