@@ -66,9 +66,6 @@ def filter_datas(dataset, target_class):
     返回:
         filtered_dataset: 筛选后的新数据集对象。
     """
-    # 检查数据集是否包含必要属性
-    if not hasattr(dataset, "datas") or not hasattr(dataset, "labels"):
-        raise AttributeError("数据集必须包含 `datas` 和 `labels` 属性")
 
     datas, labels = dataset[:]
 

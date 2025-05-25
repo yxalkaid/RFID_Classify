@@ -54,9 +54,10 @@ class UNet(nn.Module):
         self.bottleneck = nn.ModuleList(
             [
                 ConvBlock(middle_features, middle_features, num_groups=num_groups),
-                SelfAttention(
-                    middle_features, num_heads=num_heads, num_groups=num_groups
-                ),
+                # SelfAttention(
+                #     middle_features, num_heads=num_heads, num_groups=num_groups
+                # ),
+                ConvBlock(middle_features, middle_features, num_groups=num_groups),
                 ConvBlock(middle_features, middle_features, num_groups=num_groups),
                 # ResidualBlock(middle_features, middle_features, num_groups=num_groups),
             ]
