@@ -192,53 +192,6 @@ class ClassifyModelWorker:
 
             return preds, acc
 
-    def cal_confusion_matrix(self, data_loader: DataLoader, num_classes):
-        """
-        计算模型在给定数据集上的混淆矩阵
-        行为真实标签，列为预测标签
-        """
-
-        assert num_classes > 1, "num_classes must be greater than 1"
-
-        # 设置模型为评估模式
-        self.model.eval()
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model.to(device)
-
-        # 初始化混淆矩阵
-        conf_matrix = torch.zeros((num_classes, num_classes), dtype=torch.long).to(
-            device
-        )
-
-        with torch.no_grad():
-
-            progress_bar = tqdm(
-                data_loader,
-                desc="Calculating",
-                unit="step",
-                total=len(data_loader),
-            )
-            for inputs, labels in progress_bar:
-                inputs, labels = inputs.to(device), labels.to(device)
-
-                # 前向传播
-                outputs = self.model(inputs)
-                _, preds = torch.max(outputs, 1)
-
-                # 计算每个样本对应的索引（真实标签 * 类别数 + 预测标签）
-                indices = labels * num_classes + preds
-
-                # 统计每个索引的出现次数
-                counts = torch.bincount(indices, minlength=num_classes * num_classes)
-
-                # 更新混淆矩阵
-                conf_matrix += counts.view(num_classes, num_classes).to(
-                    conf_matrix.dtype
-                )
-
-        conf_matrix = conf_matrix.cpu().numpy()
-        return conf_matrix
-
     def save(self, save_path: str):
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
         torch.save(self.model.state_dict(), save_path)
