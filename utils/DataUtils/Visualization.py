@@ -236,41 +236,31 @@ def plot_density(csv_path, tag_name):
 
 
 def plot_confusion_matrix(
-    confusion_matrix,
-    class_names: list,
-    normalize: str = None,  # Options: None, 'row', 'col', 'all'
+    matrix,
+    class_names: list = None,
 ):
     """
     可视化混淆矩阵
     输入矩阵为二维数组，行表示真实标签，列表示预测标签
     """
 
-    H, W = confusion_matrix.shape
+    H, W = matrix.shape
     assert H == W, "Confusion matrix must be square"
     assert (
         len(class_names) == H
     ), "Number of class names must match confusion matrix size"
 
-    # 归一化处理
-    cm = confusion_matrix.astype(np.float32)
-    normalize = normalize.lower()
-    if normalize == "row":
-        cm = cm / (cm.sum(axis=1, keepdims=True) + 1e-10)  # 行归一化
-    elif normalize == "col":
-        cm = cm / (cm.sum(axis=0, keepdims=True) + 1e-10)  # 列归一化
-    elif normalize == "all":
-        cm = cm / (cm.sum() + 1e-10)  # 全局归一化
-    elif normalize is not None:
-        raise ValueError("normalize 参数必须是 None, 'row', 'col' 或 'all'")
+    if class_names is None:
+        class_names = [str(i) for i in range(H)]
 
     # 创建画布
     plt.figure(figsize=(8, 6))
 
     # 绘制热力图
     ax = sns.heatmap(
-        cm,
+        matrix,
         annot=True,
-        fmt=".2%" if normalize else ".0f",
+        fmt=".0f",
         cmap="Blues",
     )
 

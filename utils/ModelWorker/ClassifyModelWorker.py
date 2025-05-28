@@ -1,6 +1,6 @@
 import torch
-from torch.utils.data import DataLoader
 from torch import nn
+from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
@@ -67,7 +67,7 @@ class ClassifyModelWorker:
                 outputs = self.model(inputs)
 
                 # 获取预测结果
-                _, preds = torch.max(outputs, 1)
+                preds = torch.argmax(outputs, 1)
 
                 # 计算损失
                 loss = criterion(outputs, labels)
@@ -133,14 +133,13 @@ class ClassifyModelWorker:
                 total=len(eval_loader),
             )
             for inputs, labels in eval_progress:
-
                 inputs, labels = inputs.to(device), labels.to(device)
 
                 # 前向传播
                 outputs = self.model(inputs)
 
                 # 获取预测结果
-                _, preds = torch.max(outputs, 1)
+                preds = torch.argmax(outputs, 1)
 
                 # 计算损失
                 loss = criterion(outputs, labels)
@@ -182,7 +181,7 @@ class ClassifyModelWorker:
         with torch.no_grad():
             inputs = inputs.to(device)
             outputs = self.model(inputs.to(device))
-            _, preds = torch.max(outputs, 1)
+            preds = torch.argmax(outputs, 1)
 
             acc = -1
             if labels is not None and inputs.shape[0] == labels.shape[0]:
@@ -191,6 +190,44 @@ class ClassifyModelWorker:
                 acc = acc.item()
 
             return preds, acc
+
+    def execute_metric(self, data_loader: DataLoader, metric):
+        """
+        评价指标
+        """
+
+        # 设置模型为评估模式
+        self.model.eval()
+
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model.to(device)
+        metric.to(device)
+
+        metric.reset()
+
+        # 禁用梯度计算
+        with torch.no_grad():
+
+            exec_progress = tqdm(
+                data_loader,
+                desc="Executing",
+                unit="step",
+                total=len(data_loader),
+            )
+            for inputs, labels in exec_progress:
+                inputs, labels = inputs.to(device), labels.to(device)
+
+                # 前向传播
+                outputs = self.model(inputs)
+
+                # 获取预测结果
+                preds = torch.argmax(outputs, 1)
+
+                # 更新数据
+                metric.update(preds, labels)
+            exec_progress.close()
+        res = metric.compute()
+        return res
 
     def save(self, save_path: str):
         os.makedirs(os.path.dirname(save_path), exist_ok=True)

@@ -19,6 +19,7 @@ output/
 # logs
 logs/
 runs/
+lightning_logs/
 
 # C extensions
 *.so
