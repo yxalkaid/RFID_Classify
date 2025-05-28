@@ -1,70 +1,25 @@
-import scipy.linalg
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset
-from torch.utils.data import DataLoader
+from torch.utils.data import Dataset, DataLoader
 
+from torchvision import transforms
 from torchvision.models import inception_v3, Inception_V3_Weights
-from torchvision.transforms.functional import resize
 
-import scipy
+import scipy.linalg
 import numpy as np
 
-from typing import Tuple
 from typing import Union
 
-
-class FID_Dataset(Dataset):
-    def __init__(
-        self,
-        datas: torch.Tensor,
-        transform=None,
-        target_size: Tuple[int, int] = (299, 299),
-    ):
-        super().__init__()
-        self.datas = datas
-        self.transform = transform
-        self.target_size = target_size
-
-        # 验证输入维度
-        assert datas.ndim == 4, f"数据必须为4D张量，实际维度：{datas.ndim}"
-        self.channels = datas.shape[1]
-        assert self.channels in (1, 3), f"通道数必须为1或3，实际通道数：{self.channels}"
-
-    def __getitem__(self, index: int) -> torch.Tensor:
-        # 获取样本
-        sample = self.datas[index]
-
-        # 处理单通道转三通道
-        if self.channels == 1:
-            sample = sample.repeat(3, 1, 1)  # (3, H, W)
-
-        # 调整尺寸
-        resized = resize(
-            sample, self.target_size, interpolation=2, antialias=True  # 双线性插值
-        )
-
-        if self.transform is not None:
-            normalized = self.transform(resized)
-        else:
-            normalized = resized
-
-        return normalized
-
-    def __len__(self) -> int:
-        return len(self.datas)
+# 默认预处理
+default_transform = [
+    transforms.Resize(size=(299, 299)),
+    transforms.Lambda(lambda x: x.repeat(3, 1, 1)),
+]
 
 
 def filter_datas(dataset, target_class):
     """
-    筛选出数据集中指定类别的数据。
-
-    参数:
-        dataset: 自定义数据集对象，需包含 `datas` (Tensor) 和 `labels` (Tensor) 属性。
-        target_class: 目标类别标签（整数）。
-
-    返回:
-        filtered_dataset: 筛选后的新数据集对象。
+    筛选出数据集中指定类别的数据
     """
 
     datas, labels = dataset[:]
@@ -82,17 +37,17 @@ def filter_datas(dataset, target_class):
 
 
 def extract_inception_features(
-    dataset: Union[FID_Dataset, DataLoader],
+    dataset: Union[Dataset, DataLoader],
     batch_size: int = 32,
     return_numpy=True,
 ):
     """
-    使用InceptionV3提取特征，支持自定义数据集或DataLoader输入
+    使用InceptionV3提取特征
     Returns:
         特征矩阵 (n_samples, 2048)
     """
     # 创建DataLoader（如果输入是Dataset）
-    if isinstance(dataset, FID_Dataset):
+    if isinstance(dataset, Dataset):
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
     else:
         dataloader = dataset
@@ -108,12 +63,11 @@ def extract_inception_features(
 
     features = []
     with torch.no_grad():
-        for batch in dataloader:
-
-            batch = batch.to(device)
+        for inputs, _ in dataloader:
+            inputs = inputs.to(device)
 
             # 前向传播
-            batch_features = model(batch)
+            batch_features = model(inputs)
 
             # 收集特征
             features.append(batch_features)
@@ -139,3 +93,40 @@ def calculate_fid(real_feats, gen_feats):
     # FID 公式
     fid = np.sum((mu1 - mu2) ** 2) + np.trace(sigma1 + sigma2 - 2 * covmean)
     return fid
+
+
+def calculate_fid_metric(
+    real_loader: Union[Dataset, DataLoader],
+    gen_loader: Union[Dataset, DataLoader],
+    batch_size: int = 32,
+    normalize=False,
+):
+    """
+    计算FID
+    """
+    from torchmetrics.image.fid import FrechetInceptionDistance
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    fid = FrechetInceptionDistance(normalize=normalize)
+    fid = fid.to(device)
+
+    if isinstance(real_loader, Dataset):
+        real_loader = DataLoader(real_loader, batch_size=batch_size, shuffle=False)
+
+    if isinstance(gen_loader, Dataset):
+        gen_loader = DataLoader(gen_loader, batch_size=batch_size, shuffle=False)
+
+    # 处理真实数据
+    for inputs, _ in real_loader:
+        inputs = inputs.to(device)
+        fid.update(inputs, real=True)
+
+    # 处理生成数据
+    for inputs, _ in gen_loader:
+        inputs = inputs.to(device)
+        fid.update(inputs, real=False)
+
+    # 计算FID
+    res = fid.compute().item()
+    return res

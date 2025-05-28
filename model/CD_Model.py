@@ -26,6 +26,14 @@ class CD_Model(nn.Module):
     def input_shape(self):
         return self.unet.shape
 
+    @property
+    def num_classes(self):
+        return self.unet.num_classes
+
+    @property
+    def guidable(self):
+        return self.unet.guidable
+
     def forward(self, x, time, condition):
         return self.unet(x, time, condition)
 

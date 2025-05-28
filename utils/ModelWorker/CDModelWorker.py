@@ -23,8 +23,14 @@ class CDModelWorker:
         eval_loader: DataLoader = None,
         epochs=5,
         scheduler=None,
+        cond_dropout_rate=0.0,
         enable_board=False,
     ):
+
+        assert (
+            0.0 <= cond_dropout_rate <= 1.0
+        ), "cond_dropout_rate must be in [0.0, 1.0]"
+
         # 设置模型为训练模式
         self.model.train()
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -59,6 +65,11 @@ class CDModelWorker:
             for datas, labels in train_progress:
                 datas, labels = datas.to(device), labels.to(device)
                 batch_size = datas.size(0)
+
+                if cond_dropout_rate > 0.0 and self.model.guidable:
+                    # 条件丢弃
+                    mask = torch.rand(batch_size, device=device) > cond_dropout_rate
+                    labels = torch.where(mask, labels, self.model.num_classes)
 
                 # 清空梯度
                 optimizer.zero_grad()
@@ -95,7 +106,7 @@ class CDModelWorker:
                 train_progress.set_postfix(loss=loss.item())
             train_progress.close()
 
-            # 计算平均损失和正确率
+            # 计算平均损失
             train_loss = running_loss / len(train_loader.dataset)
 
             print(f"Train Loss: {train_loss:.4f}")
@@ -175,8 +186,20 @@ class CDModelWorker:
         return eval_loss
 
     def generate_sample(
-        self, count: int, condition: int, time: int = -1, add_noise=True
+        self,
+        count: int,
+        condition: int,
+        time: int = -1,
+        add_noise=True,
+        guidance_scale=1,
     ):
+
+        assert guidance_scale > 0, "guidance_scale must be positive"
+
+        enable_guidance = (guidance_scale != 1) and self.model.guidable
+        if not enable_guidance:
+            print("Guidance not enabled")
+
         # 设置模型为评估模式
         self.model.eval()
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -184,7 +207,8 @@ class CDModelWorker:
 
         # 设置初始时间步和条件向量
         time = time if time > 0 else self.model.timesteps
-        c = torch.full((count,), condition, dtype=torch.long, device=device)
+        cond = torch.full((count,), condition, dtype=torch.long, device=device)
+        uncond = torch.full_like(cond, self.model.num_classes)
 
         print(f"Count: {count}, Condition: {condition}")
         with torch.no_grad():
@@ -196,12 +220,23 @@ class CDModelWorker:
             )
             x = torch.randn(count, *(self.model.input_shape), device=device)
             now_t = torch.full((count,), time, dtype=torch.long, device=device)
+
             for _ in progress:
-                prev_noise = self.model(x=x, time=now_t, condition=c)
+                prev_noise = self.model(x=x, time=now_t, condition=cond)
+
+                if enable_guidance:
+                    prev_uncond_noise = self.model(x=x, time=now_t, condition=uncond)
+
+                    final_noise = prev_uncond_noise + guidance_scale * (
+                        prev_noise - prev_uncond_noise
+                    )
+                else:
+                    final_noise = prev_noise
+
                 x = self.model.reverse_process_DDPM(
                     xt=x,
                     time=now_t,
-                    prev_noise=prev_noise,
+                    prev_noise=final_noise,
                     add_noise=add_noise,
                 )
                 now_t -= 1
