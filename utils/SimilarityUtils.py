@@ -17,65 +17,15 @@ default_transform = [
 ]
 
 
-def filter_datas(dataset, target_class):
+def get_inception_model(pretrained=True, remove_fc=True):
     """
-    筛选出数据集中指定类别的数据
+    获取Inception模型
     """
-
-    datas, labels = dataset[:]
-
-    # 检查目标类别是否存在
-    unique_classes = torch.unique(labels)
-    if target_class not in unique_classes:
-        raise ValueError(f"目标类别 {target_class} 不存在于数据集中")
-
-    # 生成布尔掩码筛选数据
-    mask = labels == target_class
-    filtered_datas = datas[mask]
-
-    return filtered_datas
-
-
-def extract_inception_features(
-    dataset: Union[Dataset, DataLoader],
-    batch_size: int = 32,
-    return_numpy=True,
-):
-    """
-    使用InceptionV3提取特征
-    Returns:
-        特征矩阵 (n_samples, 2048)
-    """
-    # 创建DataLoader（如果输入是Dataset）
-    if isinstance(dataset, Dataset):
-        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
-    else:
-        dataloader = dataset
-
-    # 加载模型，移除最后的全连接层
-
-    model = inception_v3(weights=Inception_V3_Weights.DEFAULT)
-    model.fc = nn.Identity()
-
-    model.eval()
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.to(device)
-
-    features = []
-    with torch.no_grad():
-        for inputs, _ in dataloader:
-            inputs = inputs.to(device)
-
-            # 前向传播
-            batch_features = model(inputs)
-
-            # 收集特征
-            features.append(batch_features)
-
-    features = torch.cat(features, dim=0).cpu()
-    if return_numpy:
-        features = features.numpy()
-    return features
+    weights = Inception_V3_Weights.DEFAULT if pretrained else None
+    model = inception_v3(weights=weights)
+    if remove_fc:
+        model.fc = nn.Identity()
+    return model
 
 
 def calculate_fid(real_feats, gen_feats):
@@ -95,11 +45,63 @@ def calculate_fid(real_feats, gen_feats):
     return fid
 
 
-def calculate_fid_metric(
-    real_loader: Union[Dataset, DataLoader],
-    gen_loader: Union[Dataset, DataLoader],
+def execute_fid_metric_temp(
+    real_dataset: Union[Dataset, DataLoader],
+    gen_dataset: Union[Dataset, DataLoader],
     batch_size: int = 32,
-    normalize=False,
+    model=None,
+):
+    """
+    计算FID
+    """
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    if model is None:
+        model = get_inception_model()
+    model.to(device)
+
+    if isinstance(real_dataset, Dataset):
+        real_loader = DataLoader(real_dataset, batch_size=batch_size, shuffle=False)
+    else:
+        real_loader = real_dataset
+
+    if isinstance(gen_dataset, Dataset):
+        gen_loader = DataLoader(gen_dataset, batch_size=batch_size, shuffle=False)
+    else:
+        gen_loader = gen_dataset
+
+    # 提取特征
+    model.eval()
+    real_features = []
+    gen_features = []
+    with torch.no_grad():
+        # 处理真实数据
+        for inputs, _ in real_loader:
+            inputs = inputs.to(device)
+
+            outputs = model(inputs)
+            real_features.append(outputs)
+
+        # 处理生成数据
+        for inputs, _ in gen_loader:
+            inputs = inputs.to(device)
+
+            outputs = model(inputs)
+            gen_features.append(outputs)
+
+    # 计算FID
+    real_features = torch.cat(real_features, dim=0).cpu().numpy()
+    gen_features = torch.cat(gen_features, dim=0).cpu().numpy()
+    res = calculate_fid(real_features, gen_features)
+    return res
+
+
+def execute_fid_metric(
+    real_dataset: Union[Dataset, DataLoader],
+    gen_dataset: Union[Dataset, DataLoader],
+    batch_size: int = 32,
+    fid_instance=None,
 ):
     """
     计算FID
@@ -108,25 +110,34 @@ def calculate_fid_metric(
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    fid = FrechetInceptionDistance(normalize=normalize)
-    fid = fid.to(device)
+    #  创建FID实例
+    if isinstance(fid_instance, FrechetInceptionDistance):
+        fid_metric = fid_instance
+    else:
+        fid_metric = FrechetInceptionDistance()
+    fid_metric = fid_metric.to(device)
+    fid_metric.reset()
 
-    if isinstance(real_loader, Dataset):
-        real_loader = DataLoader(real_loader, batch_size=batch_size, shuffle=False)
+    if isinstance(real_dataset, Dataset):
+        real_loader = DataLoader(real_dataset, batch_size=batch_size, shuffle=False)
+    else:
+        real_loader = real_dataset
 
-    if isinstance(gen_loader, Dataset):
-        gen_loader = DataLoader(gen_loader, batch_size=batch_size, shuffle=False)
+    if isinstance(gen_dataset, Dataset):
+        gen_loader = DataLoader(gen_dataset, batch_size=batch_size, shuffle=False)
+    else:
+        gen_loader = gen_dataset
 
     # 处理真实数据
     for inputs, _ in real_loader:
         inputs = inputs.to(device)
-        fid.update(inputs, real=True)
+        fid_metric.update(inputs, real=True)
 
     # 处理生成数据
     for inputs, _ in gen_loader:
         inputs = inputs.to(device)
-        fid.update(inputs, real=False)
+        fid_metric.update(inputs, real=False)
 
     # 计算FID
-    res = fid.compute().item()
+    res = fid_metric.compute()
     return res
