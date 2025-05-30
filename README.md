@@ -26,6 +26,9 @@ RFID_Classify
 │  │  ├─ UNet.py(DDPM的UNet)
 │  │  └─ UNet_v2.py(DDPM的UNet_v2)
 │  ├─ MinSNRLoss.py(用于DDPM的最小信噪比损失函数)
+│  ├─ ModelWorker
+│  │  ├─ CDModelWorker.py(条件扩散模型工作器)
+│  │  └─ ClassifyModelWorker.py(分类模型工作器)
 │  ├─ Normalization.py(数据归一化)
 │  ├─ RFID_Dataset.py(RFID数据集)
 │  └─ __init__.py
@@ -45,12 +48,7 @@ RFID_Classify
 │  │  ├─ DataConverter.py
 │  │  └─ TimeSeriesWindow.py
 │  ├─ FeatureUtils.py(特征提取相关)
-│  ├─ ModelWorker
-│  │  ├─ Callback.py(未使用)
-│  │  ├─ CDModelWorker.py(条件扩散模型工作器)
-│  │  └─ ClassifyModelWorker.py(分类模型工作器)
 │  ├─ SimilarityUtils.py(相似度计算相关)
 │  └─ __init__.py
 └─ visual.ipynb
-
 ```
