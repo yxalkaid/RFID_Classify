@@ -128,7 +128,7 @@ def build_class_datasets(
     data_map: Union[dict, str],
     T=32,
     step=None,
-    transform=None,
+    transforms=None,
 ):
     """
     为每个类别构建一个独立的 RFID_Dataset 对象。
@@ -142,6 +142,17 @@ def build_class_datasets(
         if len(path_list) == 0:
             continue
         sub_data_map = {label: path_list}
+
+        if isinstance(transforms, dict):
+            transform = transforms.get(label)
+        elif isinstance(transforms, list):
+            i = int(label)
+            if i >= len(transforms):
+                continue
+            transform = transforms[i]
+        else:
+            transform = transforms
+
         dataset = RFID_Dataset(
             data_map=sub_data_map, T=T, step=step, transform=transform
         )
