@@ -2,6 +2,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+
 from tqdm import tqdm
 
 import os
@@ -25,6 +26,7 @@ class CDModelWorker:
         scheduler=None,
         cond_dropout_rate=0.0,
         enable_board=False,
+        verbose=0,
     ):
 
         assert (
@@ -40,20 +42,30 @@ class CDModelWorker:
         if isinstance(criterion, nn.MSELoss):
             mse_flag = True
 
-        print(f"Model will be trained on {device}")
-        print("=" * 30)
+        if verbose >= 0:
+            print(f"Model will be trained on {device}")
+            print("=" * 30)
 
         logger = None
         if enable_board:
             logger = SummaryWriter()
-        for epoch in range(epochs):
+
+        epoch_progress = tqdm(
+            range(epochs),
+            desc="Epoch",
+            unit="epoch",
+            total=epochs,
+            disable=(verbose != 1),
+        )
+        for epoch in epoch_progress:
             self.model.train()
 
             running_loss = 0.0
 
-            print(f"Epoch [{epoch+1}/{epochs}] begin...")
-            if scheduler is not None:
-                print(f"Learning rate: {scheduler.get_last_lr()[0]:.6f}")
+            if verbose >= 2:
+                print(f"Epoch [{epoch+1}/{epochs}] begin...")
+                if scheduler is not None:
+                    print(f"Learning rate: {scheduler.get_last_lr()[0]:.6f}")
 
             # 设置进度条
             train_progress = tqdm(
@@ -61,6 +73,7 @@ class CDModelWorker:
                 desc="Training",
                 unit="step",
                 total=len(train_loader),
+                disable=(verbose < 2),
             )
             for datas, labels in train_progress:
                 datas, labels = datas.to(device), labels.to(device)
@@ -108,23 +121,32 @@ class CDModelWorker:
 
             # 计算平均损失
             train_loss = running_loss / len(train_loader.dataset)
+            epoch_progress.set_postfix(loss=train_loss)
 
-            print(f"Train Loss: {train_loss:.4f}")
+            if verbose >= 2:
+                print(f"Train Loss: {train_loss:.4f}")
 
             if enable_board and logger:
                 logger.add_scalar("train/loss", train_loss, epoch + 1)
 
             if eval_loader is not None:
-                eval_loss = self.evaluate(eval_loader, criterion)
+                eval_loss = self.evaluate(eval_loader, criterion, verbose)
                 if enable_board and logger:
                     logger.add_scalar("eval/loss", eval_loss, epoch + 1)
 
             if scheduler is not None:
                 scheduler.step()
 
-            print("=" * 30)
+            if verbose >= 2:
+                print("=" * 30)
+        epoch_progress.close()
 
-    def evaluate(self, eval_loader: DataLoader, criterion):
+    def evaluate(
+        self,
+        eval_loader: DataLoader,
+        criterion,
+        verbose=0,
+    ):
 
         # 设置模型为评估模式
         self.model.eval()
@@ -145,6 +167,7 @@ class CDModelWorker:
                 desc="Evaluating",
                 unit="step",
                 total=len(eval_loader),
+                disable=(verbose < 2),
             )
             for datas, labels in eval_progress:
                 datas, labels = datas.to(device), labels.to(device)
@@ -181,7 +204,10 @@ class CDModelWorker:
 
         eval_loss = running_loss / len(eval_loader.dataset)
 
-        print(f"Eval samples:{len(eval_loader.dataset)}, Eval Loss: {eval_loss:.4f}")
+        if verbose >= 2:
+            print(
+                f"Eval samples:{len(eval_loader.dataset)}, Eval Loss: {eval_loss:.4f}"
+            )
 
         return eval_loss
 
