@@ -87,6 +87,8 @@ class SimpleNet(nn.Module):
                     kernel_size=3,
                     padding=1,
                 ),
+                nn.ReLU(),
+                nn.MaxPool2d(2, 2),
                 nn.Dropout2d(0.2),
             )
         )
@@ -95,7 +97,8 @@ class SimpleNet(nn.Module):
         self.layers.append(
             nn.Sequential(
                 nn.Conv2d(32, 64, kernel_size=3, padding=1),
-                nn.MaxPool2d(2, 2),
+                nn.ReLU(),
+                # nn.MaxPool2d(2, 2),
                 nn.Dropout2d(0.3),
             )
         )
@@ -104,6 +107,8 @@ class SimpleNet(nn.Module):
         self.layers.append(
             nn.Sequential(
                 nn.Conv2d(64, 128, kernel_size=3, padding=1),
+                nn.ReLU(),
+                nn.MaxPool2d(2, 2),
                 nn.Dropout2d(0.4),
             )
         )
@@ -119,7 +124,9 @@ class SimpleNet(nn.Module):
         self.layers.append(
             nn.Sequential(
                 nn.Flatten(),
-                nn.Linear(fc_input_size, num_classes),
+                nn.Linear(fc_input_size, 512),
+                nn.ReLU(),
+                nn.Linear(512, num_classes),
             )
         )
 
