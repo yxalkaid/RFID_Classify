@@ -50,6 +50,7 @@ class CDModelWorker:
         if enable_board:
             logger = SummaryWriter()
 
+        epoch_info = dict()
         epoch_progress = tqdm(
             range(epochs),
             desc="Epoch",
@@ -121,7 +122,7 @@ class CDModelWorker:
 
             # 计算平均损失
             train_loss = running_loss / len(train_loader.dataset)
-            epoch_progress.set_postfix(loss=train_loss)
+            epoch_info["train_loss"] = train_loss
 
             if verbose >= 2:
                 print(f"Train Loss: {train_loss:.4f}")
@@ -131,11 +132,15 @@ class CDModelWorker:
 
             if eval_loader is not None:
                 eval_loss = self.evaluate(eval_loader, criterion, verbose)
+                epoch_info["eval_loss"] = eval_loss
                 if enable_board and logger:
                     logger.add_scalar("eval/loss", eval_loss, epoch + 1)
 
             if scheduler is not None:
+                epoch_info["lr"] = optimizer.param_groups[0]["lr"]
                 scheduler.step()
+
+            epoch_progress.set_postfix(epoch_info)
 
             if verbose >= 2:
                 print("=" * 30)
