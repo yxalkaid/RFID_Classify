@@ -1,7 +1,5 @@
-import torch
 from torch import nn
 
-from .EmbeddingBlock import EmbeddingBlock
 from .Block import DownSample, UpSample, StageBlock, ConvBlock
 
 
@@ -14,30 +12,17 @@ class UNet(nn.Module):
         self,
         input_shape=(1, 28, 28),
         init_features=32,
-        num_classes=10,
         embed_dim=128,
         num_heads=4,
         num_groups=32,
-        enable_guidance=False,
     ):
         super().__init__()
 
         self.shape = input_shape
-        self.num_classes = num_classes
-        self.guidable = enable_guidance
 
         in_channels = input_shape[0]
         out_channels = input_shape[0]
         features = init_features
-
-        # 嵌入层
-        target_num_classes = num_classes
-        if enable_guidance:
-            # Classifier-Free Guidance实现
-            target_num_classes = num_classes + 1
-        self.embedder = EmbeddingBlock(
-            embed_dim, embed_dim // 2, embed_dim // 2, target_num_classes
-        )
 
         # 首部
         self.head_block = nn.Sequential(
@@ -81,10 +66,7 @@ class UNet(nn.Module):
             nn.Conv2d(features, out_channels, kernel_size=3, padding=1),
         )
 
-    def forward(self, x, time, condition):
-
-        # 生成联合嵌入
-        embed = self.embedder(time, condition)
+    def forward(self, x, embed):
 
         # 首部
         enc_x = self.head_block(x)

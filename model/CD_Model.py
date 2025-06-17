@@ -1,7 +1,9 @@
 import torch
 from torch import nn
+
 from .Diffusion.UNet import UNet
 from .BetaScheduler import BetaScheduler
+from .EmbeddingBlock import EmbeddingBlock
 
 
 class CD_Model(nn.Module):
@@ -13,10 +15,25 @@ class CD_Model(nn.Module):
         self,
         unet: UNet,
         scheduler: BetaScheduler,
+        num_classes=10,
+        embed_dim=128,
+        enable_guidance=False,
     ):
         super().__init__()
         self.unet = unet
         self.scheduler = scheduler
+
+        self.__num_classes = num_classes
+        self.__guidable = enable_guidance
+
+        # 嵌入层
+        target_num_classes = num_classes
+        if enable_guidance:
+            # Classifier-Free Guidance实现
+            target_num_classes = num_classes + 1
+        self.embedder = EmbeddingBlock(
+            embed_dim, embed_dim // 2, embed_dim // 2, target_num_classes
+        )
 
     @property
     def timesteps(self):
@@ -28,14 +45,21 @@ class CD_Model(nn.Module):
 
     @property
     def num_classes(self):
-        return self.unet.num_classes
+        return self.__num_classes
 
     @property
     def guidable(self):
-        return self.unet.guidable
+        return self.__guidable
 
     def forward(self, x, time, condition):
-        return self.unet(x, time, condition)
+
+        # 生成联合嵌入
+        embed = self.embedder(time, condition)
+
+        # 去噪
+        out = self.unet(x, embed)
+
+        return out
 
     @torch.no_grad()
     def forward_process(self, x0, t, noise=None):

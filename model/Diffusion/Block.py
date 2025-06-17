@@ -248,7 +248,7 @@ class AdaGN(nn.Module):
 
     def __init__(self, in_channels, embed_dim=128, num_groups=32):
         super().__init__()
-        self.norm = nn.GroupNorm(num_groups, in_channels)
+        self.norm = nn.GroupNorm(num_groups, in_channels, affine=False)
         self.embed_proj = nn.Sequential(
             nn.Linear(embed_dim, 2 * in_channels),
             nn.SiLU(),
