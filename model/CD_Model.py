@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from .Diffusion.UNet import UNet
+from .base.UNet import UNet
 from .BetaScheduler import BetaScheduler
 from .EmbeddingBlock import EmbeddingBlock
 
