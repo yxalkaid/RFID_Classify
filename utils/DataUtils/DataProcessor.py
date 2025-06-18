@@ -106,13 +106,24 @@ class DataProcessor:
         if mask_path:
             mask.to_csv(mask_path, index=False)
 
-    def load_raw_data(self, input_path: str):
+    def load_raw_data(self, input_path: str, names=None):
         """
         加载原始数据
         """
         df = pd.read_csv(
-            input_path, header=None, names=["time", "id", "channel", "phase", "rssi"]
+            input_path,
+            header=None,
         )
+
+        if names is None:
+            names = ["time", "id", "channel", "phase", "rssi", "antenna"]
+        col_length = len(df.columns)
+        if col_length <= len(names):
+            names = names[:col_length]
+        else:
+            names.extend([str(i) for i in range(len(names), col_length)])
+        df.columns = names
+
         return df
 
     def load_data(self, input_path: str):

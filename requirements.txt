@@ -1,5 +1,9 @@
 absl-py==2.2.1
+aiohappyeyeballs==2.6.1
+aiohttp==3.12.2
+aiosignal==1.3.2
 asttokens==3.0.0
+attrs==25.3.0
 certifi==2025.1.31
 charset-normalizer==3.4.1
 colorama==0.4.6
@@ -11,6 +15,7 @@ decorator==5.2.1
 executing==2.2.0
 filelock==3.18.0
 fonttools==4.56.0
+frozenlist==1.6.0
 fsspec==2025.3.0
 grpcio==1.71.0
 idna==3.10
@@ -23,11 +28,13 @@ joblib==1.4.2
 jupyter_client==8.6.3
 jupyter_core==5.7.2
 kiwisolver==1.4.8
+lightning-utilities==0.14.3
 Markdown==3.7
 MarkupSafe==3.0.2
 matplotlib==3.10.1
 matplotlib-inline==0.1.7
 mpmath==1.3.0
+multidict==6.4.4
 nest-asyncio==1.6.0
 networkx==3.4.2
 numpy==2.2.4
@@ -37,6 +44,7 @@ parso==0.8.4
 pillow==11.1.0
 platformdirs==4.3.7
 prompt_toolkit==3.0.50
+propcache==0.3.1
 protobuf==6.30.2
 psutil==7.0.0
 pure_eval==0.2.3
@@ -59,8 +67,10 @@ tensorboard==2.19.0
 tensorboard-data-server==0.7.2
 threadpoolctl==3.6.0
 torch @ file:///D:/Downloads/torch-2.5.1%2Bcu124-cp312-cp312-win_amd64.whl#sha256=3c3f705fb125edbd77f9579fa11a138c56af8968a10fc95834cdd9fdf4f1f1a6
+torch-fidelity==0.3.0
 torch-tb-profiler==0.4.3
 torchkeras==4.0.4
+torchmetrics==1.7.1
 torchvision @ file:///D:/Downloads/torchvision-0.20.1%2Bcu124-cp312-cp312-win_amd64.whl#sha256=0f6c7b3b0e13663fb3359e64f3604c0ab74c2b4809ae6949ace5635a5240f0e5
 tornado==6.4.2
 tqdm==4.67.1
@@ -70,3 +80,4 @@ tzdata==2025.2
 urllib3==2.3.0
 wcwidth==0.2.13
 Werkzeug==3.1.3
+yarl==1.20.0
