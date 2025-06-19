@@ -91,10 +91,10 @@ class UNet(nn.Module):
         # dec_x = self.bottleneck(enc_x)
         dec_x = enc_x
         for bot in self.bottleneck:
-            if isinstance(bot, ResidualBlock):
-                dec_x = bot(dec_x, embed)
-            else:
+            if isinstance(bot, ConvBlock):
                 dec_x = bot(dec_x)
+            else:
+                dec_x = bot(dec_x, embed)
 
         # 解码器路径
         for up in self.decoder:

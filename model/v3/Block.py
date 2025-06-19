@@ -13,9 +13,11 @@ class DownSample(nn.Module):
 
         stride = kernel_size
         self.down = nn.Sequential(
-            nn.Conv2d(
-                in_channels, out_channels, kernel_size=kernel_size, stride=stride
-            ),
+            # nn.Conv2d(
+            #     in_channels, out_channels, kernel_size=kernel_size, stride=stride
+            # ),
+            nn.Conv2d(in_channels, out_channels, kernel_size=1),
+            nn.MaxPool2d(kernel_size=kernel_size),
         )
 
     def forward(self, x):
@@ -95,7 +97,7 @@ class StageBlock_v2(nn.Module):
 
         x = self.conv(x)
         x = self.res(x, embed)
-        x = self.atten(x)
+        x = self.atten(x, embed)
         return x
 
 
@@ -175,6 +177,8 @@ class SelfAttention(nn.Module):
             in_channels % num_heads == 0
         ), "in_channels must be divisible by num_heads"
 
+        self.adagn = AdaGN(in_channels, embed_dim=128, num_groups=num_groups)
+
         self.norm = nn.GroupNorm(num_groups, in_channels)
         self.attn = nn.MultiheadAttention(
             embed_dim=in_channels,
@@ -183,19 +187,20 @@ class SelfAttention(nn.Module):
             dropout=0.05,
         )
 
-    def forward(self, x):
+    def forward(self, x, embed):
         B, C, H, W = x.shape
-        x_norm = self.norm(x)
+        # x_norm = self.norm(x)
+        x_norm = self.adagn(x, embed)
 
         seq_len = H * W
         x_flat = x_norm.view(B, C, seq_len).permute(2, 0, 1)
 
         attn_output, _ = self.attn(x_flat, x_flat, x_flat)
 
+        attn_output = F.gelu(attn_output)
         attn_output = x_flat + attn_output
 
         out = attn_output.permute(1, 2, 0).view(B, C, H, W)
-        out = F.gelu(out)
         return out
 
 

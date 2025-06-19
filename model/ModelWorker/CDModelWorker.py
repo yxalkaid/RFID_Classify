@@ -304,35 +304,6 @@ class CDModelWorker:
         out = x.cpu()
         return out
 
-    def save_samples(self, datas, output_dir, start_index=-1, include_header=True):
-
-        if isinstance(datas, torch.Tensor):
-            datas = datas.cpu().numpy()
-
-        assert len(datas.shape) == 4, "datas must be 4D tensor"
-
-        # 创建输出目录（如果不存在）
-        os.makedirs(output_dir, exist_ok=True)
-
-        if start_index == -1:
-            start_index = len(os.listdir(output_dir))
-
-        # 遍历每个样本并保存为 CSV 文件
-        for i, data in enumerate(datas):
-            # 去掉多余的维度
-            data = data.squeeze(0)
-
-            # 创建 DataFrame 并添加索引列
-            df = pd.DataFrame(data)
-            df.index.name = "time"  # 设置索引列的名称
-
-            # 定义文件名
-            file_name = f"sample_{i+start_index}.csv"
-            file_path = os.path.join(output_dir, file_name)
-
-            # 保存为 CSV 文件
-            df.to_csv(file_path, index=True, header=include_header)
-
     def save(self, save_path: str):
         dir_name = os.path.dirname(save_path)
         os.makedirs(dir_name, exist_ok=True)
