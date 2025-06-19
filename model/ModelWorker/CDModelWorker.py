@@ -4,6 +4,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 from tqdm import tqdm
+import pandas as pd
 
 import os
 
@@ -216,18 +217,46 @@ class CDModelWorker:
 
         return eval_loss
 
-    def generate_sample(
+    def generate_sample_batch(
         self,
         count: int,
         condition: int,
+        add_noise=True,
+        guidance_scale=1,
+    ):
+        condition = torch.full((count,), condition, dtype=torch.long)
+        out = self.generate_sample(
+            condition,
+            add_noise=add_noise,
+            guidance_scale=guidance_scale,
+        )
+        return out
+
+    def generate_sample_all(
+        self,
+        repeat=1,
+        add_noise=True,
+        guidance_scale=1,
+    ):
+        condition = torch.arange(self.model.num_classes, dtype=torch.long)
+        condition = torch.repeat_interleave(condition, repeat)
+        out = self.generate_sample(
+            condition,
+            add_noise=add_noise,
+            guidance_scale=guidance_scale,
+        )
+        return out
+
+    def generate_sample(
+        self,
+        condition: torch.Tensor,
         time: int = -1,
         add_noise=True,
         guidance_scale=1,
     ):
+        assert condition.dim() == 1, "condition must be a 1D tensor"
 
-        assert guidance_scale > 0, "guidance_scale must be positive"
-
-        enable_guidance = (guidance_scale != 1) and self.model.guidable
+        enable_guidance = (guidance_scale > 1) and self.model.guidable
         if not enable_guidance:
             print("Guidance not enabled")
 
@@ -237,11 +266,11 @@ class CDModelWorker:
         self.model.to(device)
 
         # 设置初始时间步和条件向量
+        count = condition.shape[0]
         time = time if time > 0 else self.model.timesteps
-        cond = torch.full((count,), condition, dtype=torch.long, device=device)
+        cond = condition.to(device)
         uncond = torch.full_like(cond, self.model.num_classes)
 
-        print(f"Count: {count}, Condition: {condition}")
         with torch.no_grad():
             progress = tqdm(
                 reversed(range(1, time + 1)),
@@ -272,9 +301,37 @@ class CDModelWorker:
                 )
                 now_t -= 1
             progress.close()
-        print("=" * 30)
         out = x.cpu()
         return out
+
+    def save_samples(self, datas, output_dir, start_index=-1, include_header=True):
+
+        if isinstance(datas, torch.Tensor):
+            datas = datas.cpu().numpy()
+
+        assert len(datas.shape) == 4, "datas must be 4D tensor"
+
+        # 创建输出目录（如果不存在）
+        os.makedirs(output_dir, exist_ok=True)
+
+        if start_index == -1:
+            start_index = len(os.listdir(output_dir))
+
+        # 遍历每个样本并保存为 CSV 文件
+        for i, data in enumerate(datas):
+            # 去掉多余的维度
+            data = data.squeeze(0)
+
+            # 创建 DataFrame 并添加索引列
+            df = pd.DataFrame(data)
+            df.index.name = "time"  # 设置索引列的名称
+
+            # 定义文件名
+            file_name = f"sample_{i+start_index}.csv"
+            file_path = os.path.join(output_dir, file_name)
+
+            # 保存为 CSV 文件
+            df.to_csv(file_path, index=True, header=include_header)
 
     def save(self, save_path: str):
         dir_name = os.path.dirname(save_path)

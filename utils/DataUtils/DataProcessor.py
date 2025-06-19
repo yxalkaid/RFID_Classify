@@ -16,7 +16,8 @@ class DataProcessor:
         mask_dir=None,
         processed_dir=None,
         interpolation=False,
-        method="mean",
+        window_ms=125,
+        sample_method="mean",
     ):
         """
         批量处理
@@ -49,7 +50,8 @@ class DataProcessor:
                     mask_path=mask_path,
                     processed_path=processed_path,
                     interpolation=interpolation,
-                    method=method,
+                    window_ms=window_ms,
+                    sample_method=sample_method,
                 )
 
     def run_pipeline(
@@ -60,14 +62,13 @@ class DataProcessor:
         suffix_len=4,
         mask_path=None,
         processed_path=None,
+        window_ms=125,
         interpolation=False,
-        method="mean",
+        sample_method="mean",
     ):
         """
         统一调度处理流程
         """
-
-        window_ms = 125
 
         # 加载原始数据
         raw_data = self.load_raw_data(input_path)
@@ -90,7 +91,7 @@ class DataProcessor:
 
         # 数据处理分支
         data = self.cal_phase_diff(df)
-        data = self.downsample_data(data, window_ms, method)
+        data = self.downsample_data(data, window_ms, sample_method)
 
         if mask_path:
             # 检查维度匹配
