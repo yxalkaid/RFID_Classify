@@ -28,6 +28,7 @@ joblib==1.4.2
 jupyter_client==8.6.3
 jupyter_core==5.7.2
 kiwisolver==1.4.8
+lightning==2.5.1.post0
 lightning-utilities==0.14.3
 Markdown==3.7
 MarkupSafe==3.0.2
@@ -51,6 +52,7 @@ pure_eval==0.2.3
 Pygments==2.19.1
 pyparsing==3.2.3
 python-dateutil==2.9.0.post0
+pytorch-lightning==2.5.1.post0
 pytz==2025.2
 pywin32==310
 PyYAML==6.0.2

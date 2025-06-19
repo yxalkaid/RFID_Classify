@@ -28,7 +28,8 @@ class UNet(nn.Module):
 
         # 首部
         self.head_block = nn.Sequential(
-            ConvBlock(in_channels, features, num_groups=num_groups),
+            # ConvBlock(in_channels, features, num_groups=num_groups),
+            nn.Conv2d(in_channels, features, kernel_size=3, padding=1),
         )
 
         # 编码器
@@ -47,9 +48,10 @@ class UNet(nn.Module):
         # 中间瓶颈层
         self.bottleneck = nn.ModuleList(
             [
-                ConvBlock(middle_features, middle_features, num_groups=num_groups),
-                ConvBlock(middle_features, middle_features, num_groups=num_groups),
-                ConvBlock(middle_features, middle_features, num_groups=num_groups),
+                ResidualBlock(middle_features, middle_features, embed_dim, num_groups),
+                SelfAttention(middle_features, num_heads, num_groups),
+                ResidualBlock(middle_features, middle_features, embed_dim, num_groups),
+                # ConvBlock(middle_features, middle_features, num_groups=num_groups),
             ]
         )
 
