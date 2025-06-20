@@ -144,7 +144,11 @@ class CD_Model(nn.Module):
         x0_hat = (
             (xt - sqrt_one_minus_alpha_bar_t * prev_noise) / sqrt_alpha_bar_t
         ) * sqrt_alpha_bar_prev
-        direction = torch.sqrt(1.0 - alpha_bar_prev - sigma_t**2) * prev_noise
+        # direction = torch.sqrt(1.0 - alpha_bar_prev - sigma_t**2) * prev_noise
+        direction = (
+            torch.sqrt(torch.clamp((1.0 - alpha_bar_prev - sigma_t**2), min=0))
+            * prev_noise
+        )
 
         mean = x0_hat + direction
 
