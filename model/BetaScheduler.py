@@ -42,20 +42,8 @@ class BetaScheduler(nn.Module):
         sqrt_recip_alphas = torch.sqrt(1.0 / alphas)
         self.register_buffer("sqrt_recip_alphas", sqrt_recip_alphas)
 
-        # # α̃_{t-1}
-        # alphas_bar_prev = torch.cat([torch.tensor([1.0]), alphas_bar[:-1]])
-        # sigmas = torch.sqrt((1 - alphas_bar_prev) / (1 - alphas_bar) * betas)
-
-        # σ_t
-        sigmas = torch.sqrt(betas)
-        self.register_buffer("sigmas", sigmas)
-
     def get_beta(self, t):
         res = self.betas[t].view(-1, 1, 1, 1)
-        return res
-
-    def get_sigma(self, t):
-        res = self.sigmas[t].view(-1, 1, 1, 1)
         return res
 
     def get_alpha_bar(self, t):

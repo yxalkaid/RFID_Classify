@@ -4,9 +4,9 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 from tqdm import tqdm
-import pandas as pd
 
 import os
+from typing import Union
 
 
 class CDModelWorker:
@@ -221,38 +221,38 @@ class CDModelWorker:
         self,
         count: int,
         condition: int,
-        add_noise=True,
         guidance_scale=1,
+        add_noise=True,
     ):
         condition = torch.full((count,), condition, dtype=torch.long)
-        out = self.generate_sample(
+        out = self.generate_sample_DDPM(
             condition,
-            add_noise=add_noise,
             guidance_scale=guidance_scale,
+            add_noise=add_noise,
         )
         return out
 
     def generate_sample_all(
         self,
         repeat=1,
-        add_noise=True,
         guidance_scale=1,
+        add_noise=True,
     ):
         condition = torch.arange(self.model.num_classes, dtype=torch.long)
         condition = torch.repeat_interleave(condition, repeat)
-        out = self.generate_sample(
+        out = self.generate_sample_DDPM(
             condition,
-            add_noise=add_noise,
             guidance_scale=guidance_scale,
+            add_noise=add_noise,
         )
         return out
 
-    def generate_sample(
+    def generate_sample_DDPM(
         self,
         condition: torch.Tensor,
-        time: int = -1,
-        add_noise=True,
         guidance_scale=1,
+        add_noise=True,
+        time: int = -1,
     ):
         assert condition.dim() == 1, "condition must be a 1D tensor"
 
@@ -303,6 +303,95 @@ class CDModelWorker:
             progress.close()
         out = x.cpu()
         return out
+
+    def generate_sample_DDIM(
+        self,
+        condition: torch.Tensor,
+        time: list = None,
+        eta=1.0,
+        guidance_scale=1,
+    ):
+        assert condition.dim() == 1, "condition must be a 1D tensor"
+        assert len(time) > 0, "time must be not empty"
+        assert 0 <= eta <= 1, "eta must be in [0,1]"
+
+        enable_guidance = (guidance_scale > 1) and self.model.guidable
+        if not enable_guidance:
+            print("Guidance not enabled")
+
+        # 设置模型为评估模式
+        self.model.eval()
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model.to(device)
+
+        # 设置时间步序列
+        if not time:
+            time = self.get_linear_sampling_sequence(50)
+        if time[0] != 0:
+            time.insert(0, 0)
+        assert self.check_sample_sequence(time), "时间步序列错误"
+        total_steps = len(time) - 1
+        sample_sequence = reversed(list(zip(time[:-1], time[1:])))
+
+        # 设置条件向量
+        count = condition.shape[0]
+        cond = condition.to(device)
+        uncond = torch.full_like(cond, self.model.num_classes)
+
+        with torch.no_grad():
+            progress = tqdm(
+                sample_sequence,
+                desc="Sampling",
+                unit="step",
+                total=total_steps,
+            )
+            x = torch.randn(count, *(self.model.input_shape), device=device)
+
+            for prev, now in progress:
+                now_t = torch.full((count,), now, dtype=torch.long, device=device)
+                prev_t = torch.full((count,), prev, dtype=torch.long, device=device)
+
+                prev_noise = self.model(x=x, time=now_t, condition=cond)
+
+                if enable_guidance:
+                    prev_uncond_noise = self.model(x=x, time=now_t, condition=uncond)
+
+                    final_noise = prev_uncond_noise + guidance_scale * (
+                        prev_noise - prev_uncond_noise
+                    )
+                else:
+                    final_noise = prev_noise
+
+                x = self.model.reverse_process_DDIM(
+                    xt=x,
+                    time=now_t,
+                    target_time=prev_t,
+                    prev_noise=final_noise,
+                    eta=eta,
+                )
+            progress.close()
+        out = x.cpu()
+        return out
+
+    def check_sample_sequence(self, time: list):
+        key = -1
+        for t in time:
+            if t <= key:
+                return False
+            key = t
+        if key > self.model.timesteps:
+            return False
+        return True
+
+    def get_linear_sampling_sequence(self, num_steps: int):
+        """
+        生成线性间隔的采样序列（升序排列）
+        """
+        # 生成从 1 到 total_steps 的均匀分布序列，包含端点
+        sequence = torch.linspace(
+            0, self.model.timesteps, num_steps + 1, dtype=torch.long
+        )
+        return sequence.tolist()
 
     def save(self, save_path: str):
         dir_name = os.path.dirname(save_path)

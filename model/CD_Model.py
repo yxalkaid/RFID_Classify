@@ -96,8 +96,8 @@ class CD_Model(nn.Module):
         # sqrt(1-ᾱ_t)
         sqrt_one_minus_alpha_bar_t = self.scheduler.get_sqrt_one_minus_alpha_bar(time)
 
-        # σ_t
-        sigma_t = self.scheduler.get_sigma(time)
+        # σ_t，直接采用sqrt(β_t)
+        sigma_t = torch.sqrt(beta_t)
 
         mean = sqrt_recip_alpha_t * (
             xt - beta_t / sqrt_one_minus_alpha_bar_t * prev_noise
@@ -114,11 +114,10 @@ class CD_Model(nn.Module):
         return x_prev
 
     @torch.no_grad()
-    def reverse_process_step_DDIM(self, xt, time, target_time, prev_noise, eta=1.0):
+    def reverse_process_DDIM(self, xt, time, target_time, prev_noise, eta=1.0):
         """
         反向去噪，DDIM过程
         """
-        raise NotImplementedError("DDIM not implemented yet")
 
         # sqrt(ᾱ_s)
         sqrt_alpha_bar_prev = self.scheduler.get_sqrt_alpha_bar(target_time)
@@ -132,9 +131,15 @@ class CD_Model(nn.Module):
         # ᾱ_s
         alpha_bar_prev = self.scheduler.get_alpha_bar(target_time)
 
-        # TODO: sigma计算方式与DDPM不同，需要修改调度器
-        # σ_t
-        sigma_t = self.scheduler.get_sigma(time) * eta
+        # ᾱ_t
+        alpha_bar_t = sqrt_alpha_bar_t**2
+
+        # σ_t，与DDPM的不同
+        sigma_t = (
+            torch.sqrt(1 - alpha_bar_prev)
+            / sqrt_one_minus_alpha_bar_t
+            * torch.sqrt(1 - alpha_bar_t / alpha_bar_prev)
+        )
 
         x0_hat = (
             (xt - sqrt_one_minus_alpha_bar_t * prev_noise) / sqrt_alpha_bar_t
@@ -144,10 +149,10 @@ class CD_Model(nn.Module):
         mean = x0_hat + direction
 
         # 噪声项添加
-        if eta > 0 and target_time > 0:
+        if eta > 0:
             noise = torch.randn_like(xt)
             mask = (target_time > 0).view(-1, 1, 1, 1)
-            x_prev = torch.where(mask, mean + sigma_t * noise, mean)
+            x_prev = torch.where(mask, mean + eta * sigma_t * noise, mean)
         else:
             x_prev = mean
 
