@@ -1,7 +1,7 @@
 from torch import nn
 
 from .Block import DownSample, UpSample
-from .Block import ConvBlock, ResidualBlock, SelfAttention
+from .Block import ConvBlock
 from .Block import StageBlock
 
 

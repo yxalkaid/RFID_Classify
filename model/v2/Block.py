@@ -53,34 +53,6 @@ class StageBlock(nn.Module):
     ):
         super().__init__()
 
-        self.res = ResidualBlock(
-            in_channels, out_channels, embed_dim=embed_dim, num_groups=num_groups
-        )
-        self.conv = ConvBlock(out_channels, out_channels, num_groups=num_groups)
-        self.atten = SelfAttention(
-            out_channels, num_heads=num_heads, num_groups=num_groups
-        )
-
-    def forward(self, x, embed, skip=None):
-        if skip is not None:
-            x = torch.cat([x, skip], dim=1)
-
-        x = self.res(x, embed)
-        x = self.conv(x)
-        x = self.atten(x)
-        return x
-
-
-class StageBlock_v2(nn.Module):
-    """
-    阶段块
-    """
-
-    def __init__(
-        self, in_channels, out_channels, embed_dim=128, num_heads=4, num_groups=32
-    ):
-        super().__init__()
-
         self.conv = ConvBlock(in_channels, out_channels, num_groups=num_groups)
         self.res = ResidualBlock(
             out_channels, out_channels, embed_dim=embed_dim, num_groups=num_groups
@@ -190,54 +162,8 @@ class SelfAttention(nn.Module):
 
         attn_output, _ = self.attn(x_flat, x_flat, x_flat)
 
-        attn_output = x_flat + attn_output
-
         out = attn_output.permute(1, 2, 0).view(B, C, H, W)
-        return out
-
-
-class TransformerBlock(nn.Module):
-    def __init__(self, in_channels, num_heads=4):
-        super().__init__()
-        assert (
-            in_channels % num_heads == 0
-        ), "in_channels must be divisible by num_heads"
-
-        self.attn = nn.MultiheadAttention(
-            embed_dim=in_channels,
-            num_heads=num_heads,
-            batch_first=False,
-            dropout=0.1,
-        )
-        self.drop = nn.Dropout(0.1)
-        self.norm1 = nn.LayerNorm(in_channels)
-
-        self.mlp = nn.Sequential(
-            nn.Linear(in_channels, in_channels * 4),
-            nn.GELU(),
-            nn.Linear(in_channels * 4, in_channels),
-            nn.Dropout(0.1),
-        )
-        self.norm2 = nn.LayerNorm(in_channels)
-
-    def forward(self, x):
-        B, C, H, W = x.shape
-
-        seq_len = H * W
-        x_flat = x.view(B, C, seq_len).permute(2, 0, 1)
-
-        # MHSA + 残差连接
-        attn_out, _ = self.attn(x_flat, x_flat, x_flat)
-        attn_out = self.drop(attn_out)
-        mid = x_flat + attn_out
-        mid = self.norm1(mid)
-
-        # FFN + 残差连接
-        mlp_out = self.mlp(mid)
-        out = mid + mlp_out
-        out = self.norm2(out)
-
-        out = out.permute(1, 2, 0).view(B, C, H, W)
+        out = x + out
         return out
 
 

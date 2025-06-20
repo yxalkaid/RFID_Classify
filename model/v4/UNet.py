@@ -1,7 +1,7 @@
 from torch import nn
 
 from .Block import DownSample, UpSample
-from .Block import ConvBlock, ResidualBlock, SelfAttention
+from .Block import ConvBlock, ResidualBlock, CrossAttention
 from .Block import StageBlock
 
 
@@ -48,7 +48,7 @@ class UNet(nn.Module):
         self.bottleneck = nn.ModuleList(
             [
                 ResidualBlock(middle_features, middle_features, embed_dim, num_groups),
-                SelfAttention(middle_features, embed_dim, num_heads, num_groups),
+                CrossAttention(middle_features, embed_dim, num_heads, num_groups),
                 ResidualBlock(middle_features, middle_features, embed_dim, num_groups),
                 # ConvBlock(middle_features, middle_features, num_groups=num_groups),
             ]
@@ -68,7 +68,7 @@ class UNet(nn.Module):
 
         # 尾部
         self.tail_block = nn.Sequential(
-            nn.Conv2d(features, out_channels, kernel_size=3, padding=1),
+            nn.Conv2d(features, out_channels, kernel_size=1),
         )
 
     def forward(self, x, embed):

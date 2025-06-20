@@ -1,8 +1,8 @@
 from torch import nn
 
 from .Block import DownSample, UpSample
-from .Block import ConvBlock, ResidualBlock, SelfAttention
-from .Block import StageBlock_v2 as StageBlock
+from .Block import ConvBlock, ResidualBlock
+from .Block import StageBlock
 
 
 class UNet(nn.Module):

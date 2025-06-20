@@ -53,10 +53,10 @@ class StageBlock(nn.Module):
     ):
         super().__init__()
 
+        self.conv = ConvBlock(in_channels, out_channels, num_groups=num_groups)
         self.res = ResidualBlock(
-            in_channels, out_channels, embed_dim=embed_dim, num_groups=num_groups
+            out_channels, out_channels, embed_dim=embed_dim, num_groups=num_groups
         )
-        self.conv = ConvBlock(out_channels, out_channels, num_groups=num_groups)
         self.atten = SelfAttention(
             out_channels, num_heads=num_heads, num_groups=num_groups
         )
@@ -65,9 +65,9 @@ class StageBlock(nn.Module):
         if skip is not None:
             x = torch.cat([x, skip], dim=1)
 
-        x = self.res(x, embed)
         x = self.conv(x)
-        x = self.atten(x)
+        x = self.res(x, embed)
+        x = self.atten(x, embed)
         return x
 
 
@@ -80,10 +80,11 @@ class ConvBlock(nn.Module):
         super().__init__()
         self.conv = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
-            nn.GELU(),
             nn.GroupNorm(num_groups, out_channels),
+            nn.GELU(),
             nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
             nn.GroupNorm(num_groups, out_channels),
+            nn.GELU(),
         )
 
     def forward(self, x):
@@ -114,8 +115,8 @@ class ResidualBlock(nn.Module):
 
         self.conv01 = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
-            nn.GELU(),
             nn.GroupNorm(num_groups, out_channels),
+            nn.GELU(),
         )
 
         self.conv02 = nn.Sequential(
@@ -130,6 +131,7 @@ class ResidualBlock(nn.Module):
         h = self.adagn(h, embed)
         h = self.conv02(h)
         out = h + identity
+        out = F.gelu(out)
         return out
 
 
@@ -138,14 +140,15 @@ class SelfAttention(nn.Module):
     自注意力块
     """
 
-    def __init__(self, in_channels, num_heads=4, num_groups=32):
+    def __init__(self, in_channels, embed_dim=128, num_heads=4, num_groups=32):
         super().__init__()
 
         assert (
             in_channels % num_heads == 0
         ), "in_channels must be divisible by num_heads"
 
-        self.norm = nn.GroupNorm(num_groups, in_channels)
+        self.adagn = AdaGN(in_channels, embed_dim=embed_dim, num_groups=num_groups)
+
         self.attn = nn.MultiheadAttention(
             embed_dim=in_channels,
             num_heads=num_heads,
@@ -153,17 +156,53 @@ class SelfAttention(nn.Module):
             dropout=0.05,
         )
 
-    def forward(self, x):
+    def forward(self, x, embed):
         B, C, H, W = x.shape
-        x_norm = self.norm(x)
+        x_norm = self.adagn(x, embed)
 
         seq_len = H * W
         x_flat = x_norm.view(B, C, seq_len).permute(2, 0, 1)
-
         attn_output, _ = self.attn(x_flat, x_flat, x_flat)
 
         out = attn_output.permute(1, 2, 0).view(B, C, H, W)
         out = x + out
+        out = F.gelu(out)
+        return out
+
+
+class CrossAttention(nn.Module):
+    """
+    交叉注意力块
+    """
+
+    def __init__(self, in_channels, embed_dim=128, num_heads=4, num_groups=32):
+        super().__init__()
+
+        assert (
+            in_channels % num_heads == 0
+        ), "in_channels must be divisible by num_heads"
+
+        self.adagn = AdaGN(in_channels, embed_dim=embed_dim, num_groups=num_groups)
+
+        self.attn = nn.MultiheadAttention(
+            embed_dim=in_channels,
+            num_heads=num_heads,
+            batch_first=False,
+            dropout=0.05,
+        )
+
+    def forward(self, x, embed):
+        B, C, H, W = x.shape
+        x_norm = self.adagn(x, embed)
+
+        seq_len = H * W
+        x_flat = x.view(B, C, seq_len).permute(2, 0, 1)
+        x_norm_flat = x_norm.view(B, C, seq_len).permute(2, 0, 1)
+        attn_output, _ = self.attn(x_flat, x_norm_flat, x_norm_flat)
+
+        out = attn_output.permute(1, 2, 0).view(B, C, H, W)
+        out = x + out
+        out = F.gelu(out)
         return out
 
 
