@@ -238,6 +238,8 @@ def plot_density(csv_path, tag_name):
 def plot_confusion_matrix(
     matrix,
     class_names: list = None,
+    is_percentage=False,
+    title="Confusion Matrix",
 ):
     """
     可视化混淆矩阵
@@ -260,14 +262,14 @@ def plot_confusion_matrix(
     ax = sns.heatmap(
         matrix,
         annot=True,
-        fmt=".0f",
+        fmt=".0f" if not is_percentage else ".2%",
         cmap="Blues",
     )
 
     # 设置标签和标题
     ax.set_xlabel("Predicted Label")
     ax.set_ylabel("True Label")
-    ax.set_title("Confusion Matrix")
+    ax.set_title(title)
 
     # 设置坐标轴标签
     ax.set_xticks(np.arange(len(class_names)) + 0.5)
