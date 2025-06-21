@@ -1,5 +1,27 @@
 import pandas as pd
 import os
+from typing import TypedDict, Optional
+
+
+class PipelineParams(TypedDict, total=False):
+    """
+    数据处理参数
+    """
+
+    # 是否有表头
+    has_header: bool
+
+    # 窗口大小（毫秒）
+    window_ms: int
+
+    # 是否启用插值
+    interpolation: bool
+
+    # 下采样方法
+    sample_method: str
+
+    # 小数位数
+    decimals: int
 
 
 class DataProcessor:
@@ -25,9 +47,7 @@ class DataProcessor:
         suffix_len=4,
         mask_dir=None,
         processed_dir=None,
-        interpolation=False,
-        window_ms=125,
-        sample_method="mean",
+        **kwargs: PipelineParams,
     ):
         """
         批量处理
@@ -46,12 +66,15 @@ class DataProcessor:
             if file_name.endswith(".csv"):
                 input_path = os.path.join(input_dir, file_name)
                 output_path = os.path.join(output_dir, file_name)
+
                 mask_path = None
                 if mask_dir:
                     mask_path = os.path.join(mask_dir, file_name)
+
                 processed_path = None
                 if processed_dir:
                     processed_path = os.path.join(processed_dir, file_name)
+
                 self.run_pipeline(
                     input_path,
                     output_path,
@@ -59,9 +82,7 @@ class DataProcessor:
                     suffix_len,
                     mask_path=mask_path,
                     processed_path=processed_path,
-                    interpolation=interpolation,
-                    window_ms=window_ms,
-                    sample_method=sample_method,
+                    **kwargs,
                 )
 
     def run_pipeline(
@@ -72,16 +93,16 @@ class DataProcessor:
         suffix_len=4,
         mask_path=None,
         processed_path=None,
-        window_ms=125,
-        interpolation=False,
-        sample_method="mean",
+        **kwargs: PipelineParams,
     ):
         """
         统一调度处理流程
         """
 
+        has_header = kwargs.get("has_header", True)
+        names = kwargs.get("names", None)
         # 加载原始数据
-        raw_data = self.load_raw_data(input_path)
+        raw_data = self.load_raw_data(input_path, has_header, names)
 
         # 丢弃边界数据
         raw_data = self.trim_boundaries(raw_data, head_sec=5, tail_sec=5)
@@ -94,23 +115,27 @@ class DataProcessor:
         if processed_path:
             df.to_csv(processed_path, index=False)
 
+        window_ms = kwargs.get("window_ms", 125)
         # 掩码处理分支
         if mask_path:
             mask = self.generate_mask(df)
             mask = self.downsample_mask(mask, window_ms)
 
+        sample_method = kwargs.get("method", "mean")
+        decimals = kwargs.get("decimals", 2)
         # 数据处理分支
         data = self.cal_phase_diff(df)
-        data = self.downsample_data(data, window_ms, sample_method)
+        data = self.downsample_data(data, window_ms, sample_method, decimals)
 
         if mask_path:
             # 检查维度匹配
             if mask.shape != data.shape:
                 raise RuntimeError("数据处理出错，掩码与数据维度不匹配")
 
+        interpolation = kwargs.get("interpolation", False)
         if mask_path and interpolation:
             # 插值处理
-            data = self.linear_interpolation(data, mask)
+            data = self.linear_interpolation(data, mask, decimals)
 
         # 保存最终结果
         data.to_csv(output_path, index=False)
@@ -159,7 +184,10 @@ class DataProcessor:
         if head_sec == 0 and tail_sec == 0:
             return df
 
-        df.dropna(inplace=True)
+        if df.iloc[-1].isna().any():
+            # 丢弃最后一行
+            df = df.drop(df.index[-1])
+
         # 转换时间列为datetime类型
         df["time"] = pd.to_datetime(df["time"])
 
@@ -294,7 +322,7 @@ class DataProcessor:
         return result_df
 
     def downsample_data(
-        self, df: pd.DataFrame, window_ms: int = 125, method="mean"
+        self, df: pd.DataFrame, window_ms: int = 125, method="mean", decimals=2
     ) -> pd.DataFrame:
         """
         按指定时间窗口对数据进行下采样
@@ -313,7 +341,7 @@ class DataProcessor:
             }
         )
 
-        grouped = grouped.round(2)
+        grouped = grouped.round(decimals)
 
         # 获取完整的time范围
         full_time_range = range(int(grouped.index.max()) + 1)
@@ -350,7 +378,7 @@ class DataProcessor:
         return grouped
 
     def linear_interpolation(
-        self, data_df: pd.DataFrame, mask_df: pd.DataFrame
+        self, data_df: pd.DataFrame, mask_df: pd.DataFrame, decimals=2
     ) -> pd.DataFrame:
         """
         线性插值
@@ -372,7 +400,7 @@ class DataProcessor:
         )
 
         # 保留两位小数
-        interpolated_df = interpolated_df.round(2)
+        interpolated_df = interpolated_df.round(decimals)
 
         # 将 time 列恢复为普通列
         interpolated_df = interpolated_df.reset_index()
