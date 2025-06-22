@@ -11,6 +11,9 @@ class PipelineParams(TypedDict, total=False):
     # 是否有表头
     has_header: bool
 
+    # 是否启用首尾裁剪
+    enable_trim: bool
+
     # 窗口大小（毫秒）
     window_ms: int
 
@@ -107,8 +110,10 @@ class DataProcessor:
         # 加载原始数据
         raw_data = self.load_raw_data(input_path, has_header, names)
 
+        enable_trim = kwargs.get("enable_trim", True)
         # 丢弃边界数据
-        raw_data = self.trim_boundaries(raw_data, head_sec=5, tail_sec=5)
+        if enable_trim:
+            raw_data = self.trim_boundaries(raw_data, head_sec=5, tail_sec=5)
 
         # 数据预处理
         df = self.expand_to_table(raw_data, tags, suffix_len)

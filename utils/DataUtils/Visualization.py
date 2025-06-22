@@ -7,7 +7,7 @@ import torch
 
 def plot_phase_scatter(csv_path, tag_name, limit=1000, offset=0):
     """
-    绘制相位散点图
+    绘制单个标签的相位散点图
     """
 
     offset = max(0, offset)
@@ -62,7 +62,7 @@ def plot_phase_scatter(csv_path, tag_name, limit=1000, offset=0):
 
 def plot_phase_diff_scatter(csv_path, tag_name, limit=1000, offset=0, filter_zero=True):
     """
-    绘制相位差值散点图
+    绘制单个标签的相位差值散点图
     """
 
     offset = max(0, offset)

@@ -14,7 +14,7 @@ puppeteer:
         left: 20mm     
 ---
 
-<font face="楷体">
+<div style="font-family: Times New Roman, 楷体">
 
 [TOC]
 
