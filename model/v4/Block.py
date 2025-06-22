@@ -58,7 +58,10 @@ class StageBlock(nn.Module):
             out_channels, out_channels, embed_dim=embed_dim, num_groups=num_groups
         )
         self.atten = SelfAttention(
-            out_channels, num_heads=num_heads, num_groups=num_groups
+            out_channels,
+            embed_dim=embed_dim,
+            num_heads=num_heads,
+            num_groups=num_groups,
         )
 
     def forward(self, x, embed, skip=None):
