@@ -1,6 +1,6 @@
 import pandas as pd
 import os
-from typing import TypedDict, Optional
+from typing import TypedDict
 
 
 class PipelineParams(TypedDict, total=False):
@@ -13,6 +13,9 @@ class PipelineParams(TypedDict, total=False):
 
     # 窗口大小（毫秒）
     window_ms: int
+
+    # 生成掩码时是否过滤信道变化
+    filter_channel: bool
 
     # 是否启用插值
     interpolation: bool
@@ -116,9 +119,10 @@ class DataProcessor:
             df.to_csv(processed_path, index=False)
 
         window_ms = kwargs.get("window_ms", 125)
+        filter_channel = kwargs.get("filter_channel", False)
         # 掩码处理分支
         if mask_path:
-            mask = self.generate_mask(df)
+            mask = self.generate_mask(df, filter_channel)
             mask = self.downsample_mask(mask, window_ms)
 
         sample_method = kwargs.get("method", "mean")
@@ -264,7 +268,7 @@ class DataProcessor:
         df["time"] = (delta.dt.total_seconds() * 1e3).astype(int)  # 转换为毫秒
         return df
 
-    def generate_mask(self, df: pd.DataFrame) -> pd.DataFrame:
+    def generate_mask(self, df: pd.DataFrame, filter_channel=False) -> pd.DataFrame:
         """
         生成掩码
         """
@@ -275,7 +279,15 @@ class DataProcessor:
         # 遍历所有列，生成掩码
         for col in df.columns:
             if col != "time" and not col.endswith("-channel"):
-                mask_data[col] = df[col].notna().astype(int)
+
+                # 条件：相位值非空且channel未变化（可选）
+                mask = df[col].notna()
+                if filter_channel:
+                    channel_col = f"{col}-channel"
+                    channel_filled = df[channel_col].ffill()
+                    channel_diff = channel_filled.diff()
+                    mask = mask & (channel_diff == 0)
+                mask_data[col] = mask.astype(int)
 
         mask_df = pd.DataFrame(mask_data)
         return mask_df
@@ -301,7 +313,7 @@ class DataProcessor:
         phase_cols = [col for col in df.columns[1:] if not col.endswith("-channel")]
         channel_cols = [f"{col}-channel" for col in phase_cols]
 
-        # 填充空缺值：对相位列和信道列先后进行前向填充和后向填充
+        # 填充空缺值：对相位列和信道列进行前向填充
         df[phase_cols + channel_cols] = df[phase_cols + channel_cols].ffill()
 
         # 遍历相位列，计算调整后的差值
@@ -309,13 +321,14 @@ class DataProcessor:
             channel_col = f"{col}-channel"
 
             # 计算原始差分
-            diff = df[col].diff()
+            phase_diff = df[col].diff()
 
-            # 创建条件掩码：当前行与上一行的 channel 值相同
-            mask = df[channel_col] == (df[channel_col].shift(1))
+            # 创建条件掩码：channel未变化（差分=0）
+            channel_diff = df[channel_col].diff()
+            mask = channel_diff == 0
 
             # 调整差值范围并添加到结果字典中
-            result_data[col] = diff.where(mask, 0).apply(adjust_range)
+            result_data[col] = phase_diff.where(mask, 0).apply(adjust_range)
 
         # 构造最终的 DataFrame
         result_df = pd.DataFrame(result_data)
