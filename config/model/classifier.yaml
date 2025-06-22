@@ -1,0 +1,2 @@
+name: simple
+input_shape: [1, 28, 28]

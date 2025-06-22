@@ -15,6 +15,7 @@ data/
 
 # output
 output/
+outputs/
 
 # logs
 logs/
