@@ -248,12 +248,13 @@ def plot_confusion_matrix(
 
     H, W = matrix.shape
     assert H == W, "Confusion matrix must be square"
-    assert (
-        len(class_names) == H
-    ), "Number of class names must match confusion matrix size"
 
     if class_names is None:
         class_names = [str(i) for i in range(H)]
+
+    assert (
+        len(class_names) == H
+    ), "Number of class names must match confusion matrix size"
 
     # 创建画布
     plt.figure(figsize=(8, 6))

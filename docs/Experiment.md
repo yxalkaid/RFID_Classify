@@ -20,8 +20,30 @@ puppeteer:
 
 # Experiment
 
+## RFID数据采集
+- 活动类别
+    | class | 类别 |
+    | ----- | ---- |
+    | still     | 静止 |
+    | squatting | 蹲下 |
+    | walking   | 行走 |
+    | twisting  | 扭动 |
+    | drinking  | 喝水 |
+    | boxing    | 拳击 |
+
+- 设备使用情况
+    | 设备 | 数量 |
+    | ---- | ---- |
+    | RFID读取器 | 1 |
+    | 标签       | 5 |
+
+- 设备布置
+
+
+
+
 ## RFID数据清洗
-1. 收集原始数据
+1. 收集原始数据，至少包含time、id、phase、channel列
 2. 丢弃部分首尾数据
 3. 转化为宽表
 4. 将绝对时间转为相对时间
