@@ -51,9 +51,9 @@ def plot_phase_scatter(csv_path, tag_name, limit=1000, offset=0):
         )
 
     # 设置图表属性
-    plt.title(f"Phase Values Of Tag {tag_name}, Valid Points: {valid_count}")
+    plt.title(f"Tag {tag_name}, Valid Points: {valid_count}")
     plt.xlabel("Time Point")
-    plt.ylabel("Phase Value")
+    plt.ylabel("Value")
     plt.grid(True, linestyle="--", alpha=0.7)
 
     plt.tight_layout()
@@ -92,9 +92,9 @@ def plot_phase_diff_scatter(csv_path, tag_name, limit=1000, offset=0, filter_zer
     plt.scatter(valid_time_points, valid_phases, marker="o")
 
     # 设置图表属性
-    plt.title(f"Phase Differences Of Tag {tag_name}, Valid Points: {valid_count}")
+    plt.title(f"Differences Of Tag {tag_name}, Valid Points: {valid_count}")
     plt.xlabel("Time Point")
-    plt.ylabel("Phase Difference")
+    plt.ylabel("Difference")
     plt.grid(True, linestyle="--", alpha=0.7)
 
     plt.tight_layout()
@@ -137,9 +137,9 @@ def plot_phase_diff_line(csv_path, tag_name, limit=1000, offset=0, filter_zero=T
     )
 
     # 设置图表属性
-    plt.title(f"Phase Difference Line Of {tag_name}, Valid Points: {valid_count}")
+    plt.title(f"Difference Line Of {tag_name}, Valid Points: {valid_count}")
     plt.xlabel("Time Point")
-    plt.ylabel("Phase Difference")
+    plt.ylabel("Difference")
     plt.grid(True, linestyle="--", alpha=0.7)
 
     plt.tight_layout()

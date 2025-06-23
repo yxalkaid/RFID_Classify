@@ -53,6 +53,7 @@ class DataProcessor:
         suffix_len=4,
         mask_dir=None,
         processed_dir=None,
+        diff_dir=None,
         **kwargs: PipelineParams,
     ):
         """
@@ -68,6 +69,9 @@ class DataProcessor:
         if processed_dir and not os.path.exists(processed_dir):
             os.makedirs(processed_dir)
 
+        if diff_dir and not os.path.exists(diff_dir):
+            os.makedirs(diff_dir)
+
         for file_name in os.listdir(input_dir):
             if file_name.endswith(".csv"):
                 input_path = os.path.join(input_dir, file_name)
@@ -81,6 +85,10 @@ class DataProcessor:
                 if processed_dir:
                     processed_path = os.path.join(processed_dir, file_name)
 
+                diff_path = None
+                if diff_dir:
+                    diff_path = os.path.join(diff_dir, file_name)
+
                 self.run_pipeline(
                     input_path,
                     output_path,
@@ -88,6 +96,7 @@ class DataProcessor:
                     suffix_len,
                     mask_path=mask_path,
                     processed_path=processed_path,
+                    diff_path=diff_path,
                     **kwargs,
                 )
 
@@ -99,6 +108,7 @@ class DataProcessor:
         suffix_len=4,
         mask_path=None,
         processed_path=None,
+        diff_path=None,
         **kwargs: PipelineParams,
     ):
         """
@@ -134,6 +144,8 @@ class DataProcessor:
         decimals = kwargs.get("decimals", 2)
         # 数据处理分支
         data = self.cal_phase_diff(df)
+        if diff_path:
+            data.to_csv(diff_path, index=False)
         data = self.downsample_data(data, window_ms, sample_method, decimals)
 
         if mask_path:
