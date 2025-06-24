@@ -28,9 +28,10 @@ class DatasetUtils:
         self,
         used_dataset: Dataset,
         count=1,
+        is_random=True,
     ):
         """
-        随机挑选数据集的一批样例
+        挑选数据集的一批样例
         """
 
         if used_dataset is None or count <= 0:
@@ -38,8 +39,12 @@ class DatasetUtils:
 
         import random
 
-        # 随机等概率产生不重复的索引
-        indices = random.sample(range(len(used_dataset)), count)
+        if is_random:
+            # 随机等概率产生不重复的索引
+            indices = random.sample(range(len(used_dataset)), count)
+        else:
+            # 顺序生成索引
+            indices = list(range(len(used_dataset)))[:count]
 
         datas = []
         labels = []

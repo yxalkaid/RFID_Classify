@@ -14,7 +14,7 @@ class MixedClassifyNet(nn.Module):
         lstm_hidden_size=64,
         lstm_num_layers=2,
     ):
-        super(MixedClassifyNet, self).__init__()
+        super().__init__()
 
         # 定义 CNN 部分
         self.cnn = nn.Sequential(

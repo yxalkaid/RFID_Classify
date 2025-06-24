@@ -10,7 +10,7 @@ class LSTMClassifyNet(nn.Module):
     def __init__(
         self, input_shape=(1, 28, 28), num_classes=10, hidden_size=64, num_layers=2
     ):
-        super(LSTMClassifyNet, self).__init__()
+        super().__init__()
 
         self.hidden_size = hidden_size
         self.num_layers = num_layers

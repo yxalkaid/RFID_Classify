@@ -65,7 +65,7 @@ class RFID_Dataset(Dataset):
 
     def __init__(
         self,
-        data_map: Union[dict, str],
+        data_map: Union[str, dict[int, list]],
         T=32,
         step=None,
         transform=None,
