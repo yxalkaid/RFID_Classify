@@ -145,7 +145,7 @@ class DatasetUtils:
 
             yield train_subset, eval_subset
 
-    def split_dataset(dataset, factor=0.8, random_state=42):
+    def split_dataset(self, dataset, factor=0.8, random_state=42):
         """
         划分数据集为训练集和验证集
         """

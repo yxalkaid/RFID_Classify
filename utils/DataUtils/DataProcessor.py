@@ -1,6 +1,7 @@
 import pandas as pd
 import os
 from typing import TypedDict
+import shutil
 
 
 class PipelineParams(TypedDict, total=False):
@@ -461,3 +462,35 @@ class DataProcessor:
         grouped["time"] = grouped.index  # 确保time列与索引一致
 
         return grouped
+
+    def move_csv(self, source_dir, target_dir, classes: dict):
+        """
+        将源文件夹中的CSV文件移动到目标文件夹中，并根据类别映射对文件进行分类。
+        """
+
+        if not os.path.exists(source_dir):
+            raise FileNotFoundError(f"{source_dir} 不存在")
+
+        # 确保目标文件夹存在
+        os.makedirs(target_dir, exist_ok=True)
+
+        dir_maps = dict()
+        for class_number, class_name in classes.items():
+            dir_maps[class_name] = os.path.join(
+                target_dir, f"{class_number}_{class_name}"
+            )
+            os.makedirs(dir_maps[class_name], exist_ok=True)
+
+        # 遍历源文件夹中的所有CSV文件
+        for file_name in os.listdir(source_dir):
+            for class_name in dir_maps:
+                sub_dir = None
+                if file_name.startswith(class_name):
+                    sub_dir = dir_maps[class_name]
+                    break
+
+            if sub_dir is not None:
+                # 移动文件
+                source_path = os.path.join(source_dir, file_name)
+                target_path = os.path.join(sub_dir, file_name)
+                shutil.move(source_path, target_path)

@@ -69,5 +69,9 @@ class ClassifyPLModel(pl.LightningModule):
             self.log_dict(metrics, on_step=False, on_epoch=True)
         else:
             self.log(
-                f"{prefix}/{metrics._get_name()}", metrics, on_step=False, on_epoch=True
+                f"{prefix}/metrics",
+                metrics,
+                on_step=False,
+                on_epoch=True,
+                prog_bar=True,
             )

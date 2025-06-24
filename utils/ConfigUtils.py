@@ -12,6 +12,11 @@ def get_tags(yml_path):
     return config["tags"]
 
 
+def get_classes(yml_path):
+    config = load_yml_config(yml_path)
+    return config["names"]
+
+
 def get_config(config: dict, pattern):
     group = pattern.split(".")
     node = config
