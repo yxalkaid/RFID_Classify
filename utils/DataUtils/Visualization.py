@@ -235,6 +235,28 @@ def plot_density(csv_path, tag_name):
     plt.show()
 
 
+def plot_scatter(datas, title=None):
+
+    plt.figure(figsize=(10, 6))
+
+    if isinstance(datas, dict):
+        x = datas.keys()
+        y = datas.values()
+        plt.plot(x, y)
+    elif isinstance(datas, list):
+        plt.plot(datas)
+    else:
+        raise ValueError("Invalid input data type")
+
+    plt.xlabel("X")
+    plt.ylabel("Y")
+    plt.title(title)
+
+    # 调整布局
+    plt.tight_layout()
+    plt.show()
+
+
 def plot_confusion_matrix(
     matrix,
     class_names: list = None,

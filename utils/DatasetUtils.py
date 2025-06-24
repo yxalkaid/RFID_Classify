@@ -1,6 +1,8 @@
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, Subset
 from matplotlib import pyplot as plt
+from sklearn.model_selection import train_test_split, KFold
+
 
 import random
 from typing import Callable
@@ -128,3 +130,36 @@ class DatasetUtils:
 
         if count > 0:
             plt.show()
+
+    def kfold_split(dataset, k=5, random_state=42):
+        """
+        k-fold 划分数据集
+        """
+
+        assert k > 1, "k must be greater than 1"
+
+        kf = KFold(n_splits=k, shuffle=True, random_state=random_state)
+        for train_index, eval_index in kf.split(dataset):
+            train_subset = Subset(dataset, train_index)
+            eval_subset = Subset(dataset, eval_index)
+
+            yield train_subset, eval_subset
+
+    def split_dataset(dataset, factor=0.8, random_state=42):
+        """
+        划分数据集为训练集和验证集
+        """
+
+        assert 0 < factor < 1, "factor must be between 0 and 1"
+
+        # 获取训练集和验证集索引
+        indices = range(len(dataset))
+        train_indices, eval_indices = train_test_split(
+            indices, train_size=factor, random_state=random_state
+        )
+
+        # 创建 Subset 对象
+        train_subset = Subset(dataset, train_indices)
+        eval_subset = Subset(dataset, eval_indices)
+
+        return train_subset, eval_subset

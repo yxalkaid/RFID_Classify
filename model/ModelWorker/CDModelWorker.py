@@ -151,6 +151,7 @@ class CDModelWorker:
         self,
         eval_loader: DataLoader,
         criterion,
+        step=-1,
         verbose=0,
     ):
 
@@ -162,6 +163,13 @@ class CDModelWorker:
         mse_flag = False
         if isinstance(criterion, nn.MSELoss):
             mse_flag = True
+
+        if step > 0:
+            assert (
+                1 <= step <= self.model.timesteps
+            ), "step must be within the range of model.timesteps"
+        else:
+            step = -1
 
         running_loss = 0.0
 
@@ -179,14 +187,19 @@ class CDModelWorker:
                 datas, labels = datas.to(device), labels.to(device)
                 batch_size = datas.size(0)
 
-                # 随机选择时间步
-                time = torch.randint(
-                    1,
-                    self.model.timesteps + 1,
-                    (batch_size,),
-                    dtype=torch.long,
-                    device=device,
-                )
+                if step <= 0:
+                    # 随机选择时间步
+                    time = torch.randint(
+                        1,
+                        self.model.timesteps + 1,
+                        (batch_size,),
+                        dtype=torch.long,
+                        device=device,
+                    )
+                else:
+                    time = torch.full(
+                        (batch_size,), step, dtype=torch.long, device=device
+                    )
 
                 # 正向过程
                 xt, noise = self.model.forward_process(datas, time)
@@ -216,6 +229,18 @@ class CDModelWorker:
             )
 
         return eval_loss
+
+    def evaluate_sequence(
+        self, eval_loader: DataLoader, criterion, time: list, verbose=0
+    ):
+        assert self.check_sample_sequence(time, min_value=1), "时间步序列错误"
+
+        loss_group = dict()
+        for t in time:
+            eval_loss = self.evaluate(eval_loader, criterion, step=t, verbose=verbose)
+            loss_group[t] = eval_loss
+
+        return loss_group
 
     def generate_sample_batch(
         self,
@@ -373,8 +398,8 @@ class CDModelWorker:
         out = x.cpu()
         return out
 
-    def check_sample_sequence(self, time: list):
-        key = -1
+    def check_sample_sequence(self, time: list, min_value=0, is_increase=True):
+        key = min_value - 1
         for t in time:
             if t <= key:
                 return False
@@ -383,7 +408,7 @@ class CDModelWorker:
             return False
         return True
 
-    def get_linear_sampling_sequence(self, num_steps: int):
+    def get_linear_sampling_sequence(self, num_steps: int, start: int = 0):
         """
         生成线性间隔的采样序列（升序排列）
         """
