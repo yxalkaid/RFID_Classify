@@ -87,6 +87,7 @@ class SimpleNet(nn.Module):
                     kernel_size=3,
                     padding=1,
                 ),
+                nn.GroupNorm(4, 32),
                 nn.ReLU(),
                 nn.MaxPool2d(2, 2),
                 nn.Dropout2d(0.2),
@@ -108,6 +109,7 @@ class SimpleNet(nn.Module):
             nn.Sequential(
                 nn.Conv2d(64, 128, kernel_size=3, padding=1),
                 nn.ReLU(),
+                nn.GroupNorm(16, 128),
                 nn.MaxPool2d(2, 2),
                 nn.Dropout2d(0.4),
             )

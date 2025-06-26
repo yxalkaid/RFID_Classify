@@ -1,6 +1,28 @@
 import yaml
 
 
+class RFID_Config:
+
+    def __init__(self, yml_path):
+        self.config = load_yml_config(yml_path)
+
+        assert "shape" in self.config
+        assert "tags" in self.config
+        assert "names" in self.config
+
+    @property
+    def shape(self):
+        return self.config["shape"]
+
+    @property
+    def tags(self):
+        return self.config["tags"]
+
+    @property
+    def classes(self):
+        return self.config["names"]
+
+
 def load_yml_config(yml_path):
     with open(yml_path, "r", encoding="utf-8") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
