@@ -8,16 +8,25 @@ class PipelineParams(TypedDict, total=False):
     数据处理参数
     """
 
-    # 是否有表头
+    # 是否带有表头
     has_header: bool
 
     # 是否启用首尾裁剪
     enable_trim: bool
 
+    # 首部裁剪时长（秒）
+    head_sec: float
+
+    # 尾部裁剪时长（秒）
+    tail_sec: float
+
+    # 是否为多天线
+    multi_antenna: bool
+
     # 窗口大小（毫秒）
     window_ms: int
 
-    # 生成掩码时是否过滤信道变化
+    # 生成掩码时是否过滤信道变化，若变化，置为0
     filter_channel: bool
 
     # 是否启用插值
@@ -121,12 +130,15 @@ class DataProcessor:
         raw_data = self.load_raw_data(input_path, has_header, names)
 
         enable_trim = kwargs.get("enable_trim", True)
+        head_sec = kwargs.get("head_sec", 5)
+        tail_sec = kwargs.get("tail_sec", 5)
         # 丢弃边界数据
         if enable_trim:
-            raw_data = self.trim_boundaries(raw_data, head_sec=5, tail_sec=5)
+            raw_data = self.trim_boundaries(raw_data, head_sec, tail_sec)
 
+        multi_antenna = kwargs.get("multi_antenna", False)
         # 数据预处理
-        df = self.expand_to_table(raw_data, tags, suffix_len)
+        df = self.expand_to_table(raw_data, tags, suffix_len, multi_antenna)
         df = self.convert_to_relative_time(df)
 
         # 保存预处理结果
@@ -228,7 +240,7 @@ class DataProcessor:
         return df[mask]
 
     def expand_to_table(
-        self, df: pd.DataFrame, tags: dict, suffix_len=4
+        self, df: pd.DataFrame, tags: dict, suffix_len=4, multi_antenna=False
     ) -> pd.DataFrame:
         """
         将原始数据扩展为包含相位值和通道信息的表格形式
@@ -238,12 +250,29 @@ class DataProcessor:
 
         # 构建tags映射
         tag_values = [v.replace("_", "") for _, v in sorted(tags.items())]
-        if len(tag_values) != len(set(tag_values)):
+        tags_set = set(tag_values)
+        if len(tag_values) != len(tags_set):
             raise ValueError("tags存在重复的值")
-        tags_map = {v: v[-suffix_len:] for v in tag_values}
 
         # 筛选出有效数据
-        df_filtered = df[df["id"].isin(tags_map)].copy()
+        df_filtered = df[df["id"].isin(tags_set)].copy()
+
+        if multi_antenna:
+            antennas = df["antenna"].unique()
+            antennas.sort()
+
+            # 构建tags映射
+            tags_map = dict()
+            for a in antennas:
+                for v in tag_values:
+                    tags_map[f"{v}_{a}"] = f"{v[-suffix_len:]}_{a}"
+
+            # 重命名id列为{id}_{antenna}
+            df_filtered["id"] = df_filtered.apply(
+                lambda row: f"{row['id']}_{row['antenna']}", axis=1
+            )
+        else:
+            tags_map = {v: v[-suffix_len:] for v in tag_values}
 
         # 使用数据透视表处理重复值（保留首次出现）
         pivot_phase = df_filtered.pivot_table(

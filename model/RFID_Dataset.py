@@ -68,14 +68,22 @@ class RFID_Dataset(Dataset):
         data_map: Union[str, dict[int, list]],
         T=32,
         step=None,
+        num_channels=1,
         transform=None,
     ):
         super().__init__()
+
+        assert T >= 1, "T must be greater than or equal to 1"
         self.T = T
+
         if step is None:
             step = T
-        step = max(1, step)
+        assert step >= 1, "step must be greater than or equal to 1"
         self.step = step
+
+        assert num_channels >= 1, "channel must be greater than or equal to 1"
+        self.num_channels = num_channels
+
         self.transform = transform
 
         # 初始化数据列表和标签列表
@@ -100,19 +108,31 @@ class RFID_Dataset(Dataset):
             # 检查特征维度一致性
             if self.feature_size is None:
                 self.feature_size = features.shape[1]
+                assert (
+                    self.feature_size % self.num_channels == 0
+                ), f"文件{file_path}特征维度不能整除channel"
             else:
                 assert (
                     features.shape[1] == self.feature_size
                 ), f"文件{file_path}特征维度不一致"
+
+            feature_dim = self.feature_size // self.num_channels
 
             # 生成样本
             num_samples = (len(features) - self.T) // self.step + 1
             for i in range(num_samples):
                 start = i * self.step
                 end = start + self.T
-                sample = torch.tensor(
-                    features[start:end], dtype=torch.float32
-                ).unsqueeze(0)
+                sample_data = torch.tensor(features[start:end], dtype=torch.float32)
+
+                if self.num_channels > 1:
+                    sample = (
+                        sample_data.reshape(-1, self.num_channels, feature_dim)
+                        .transpose(0, 1)
+                        .contiguous()
+                    )
+                else:
+                    sample = sample_data.unsqueeze(0)
                 self.datas.append(sample)
                 self.labels.append(label)
         except Exception as e:
@@ -136,6 +156,7 @@ def build_class_datasets(
     data_map: Union[dict, str],
     T=32,
     step=None,
+    num_channels=1,
     transforms=None,
     limit=-1,
 ):
@@ -163,7 +184,11 @@ def build_class_datasets(
             transform = transforms
 
         dataset = RFID_Dataset(
-            data_map=sub_data_map, T=T, step=step, transform=transform
+            data_map=sub_data_map,
+            T=T,
+            step=step,
+            num_channels=num_channels,
+            transform=transform,
         )
         class_datasets[label] = dataset
 
@@ -176,6 +201,7 @@ def save_samples(datas, output_dir, start_index=-1, include_header=True, merge=F
         datas = datas.cpu().numpy()
 
     assert len(datas.shape) == 4, "datas must be 4D tensor"
+    num_channels = datas.shape[1]
 
     # 创建输出目录（如果不存在）
     os.makedirs(output_dir, exist_ok=True)
@@ -186,7 +212,13 @@ def save_samples(datas, output_dir, start_index=-1, include_header=True, merge=F
     if merge:
         dfs = []
         for i, data in enumerate(datas):
-            sample_data = data.squeeze(0)
+            C, T, X = data.shape
+            if num_channels > 1:
+                sample_data = data.transpose(1, 0, 2).reshape(T, C * X)
+            else:
+                sample_data = data.squeeze(0)
+
+            # 创建 DataFrame
             df = pd.DataFrame(sample_data)
             df.index.name = "time"
             df = df.reset_index()
@@ -203,12 +235,15 @@ def save_samples(datas, output_dir, start_index=-1, include_header=True, merge=F
 
         # 遍历每个样本并保存为 CSV 文件
         for i, data in enumerate(datas):
-            # 去掉多余的维度
-            data = data.squeeze(0)
+            C, T, X = data.shape
+            if num_channels > 1:
+                sample_data = data.transpose(1, 0, 2).reshape(T, C * X)
+            else:
+                sample_data = data.squeeze(0)
 
-            # 创建 DataFrame 并添加索引列
-            df = pd.DataFrame(data)
-            df.index.name = "time"  # 设置索引列的名称
+            # 创建 DataFrame
+            df = pd.DataFrame(sample_data)
+            df.index.name = "time"
 
             # 定义文件名
             file_name = f"sample_{i+start_index}.csv"
