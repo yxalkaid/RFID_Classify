@@ -10,7 +10,20 @@ from typing import Union
 
 def load_data_map(data_dir: str, labels: list = None, limit=-1):
     """
-    加载数据映射
+    加载数据映射，
+    """
+
+    """
+    文件夹结构示例
+    data_dir
+    ├─ 0
+    │  ├─ aaa.csv
+    │  └─ bbb.csv
+    ├─ 1_example
+    │  ├─ 001.csv
+    │  └─ 002.csv
+    └─ 2
+    ...
     """
 
     if not os.path.exists(data_dir):
