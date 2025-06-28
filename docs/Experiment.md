@@ -26,17 +26,17 @@ puppeteer:
 - 活动类别
     | class | 类别 |
     | ----- | ---- |
-    | empty  | 空 |
     | still     | 静止 |
     | squatting | 蹲下 |
+    | walking | 行走 |
     | twisting  | 扭动 |
+    | drinking  | 喝水 |
     | boxing    | 拳击 |
-    | multi    | 多人 |
 
 - 设备使用
     | 设备 | 数量 |
     | ---- | ---- |
-    | RFID读取器 | 1 |
+    | RFID读取器 | 3 |
     | 标签       | 12 |
 
 - 场景

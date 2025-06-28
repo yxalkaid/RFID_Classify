@@ -49,7 +49,7 @@ def get_zero_rows(csv_path, start_col=0):
     return zero_rows
 
 
-def move_csv(self, source_dir, target_dir, classes: dict, is_copy=False):
+def move_csv(source_dir, target_dir, classes: dict, is_copy=False):
     """
     将源文件夹中的CSV文件移动到目标文件夹中，
     并根据类别映射对文件进行分类。

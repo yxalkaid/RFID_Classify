@@ -14,7 +14,7 @@ class ClassifyPLModel(pl.LightningModule):
         model: nn.Module,
         criterion,
         metrics=None,
-        lr=0.0001,
+        lr=0.001,
     ):
         super().__init__()
         self.model = model
