@@ -306,20 +306,20 @@ def plot_confusion_matrix(
 
 
 def plot_curves(
-    group: dict,
+    group: dict[str, torch.Tensor | dict | list],
 ):
     plt.figure(figsize=(10, 6))
 
-    # 遍历字典中的每个张量并绘制
-    for label, tensor in group.items():
-        # 处理张量（移除梯度、转CPU、转numpy）
-        if isinstance(tensor, torch.Tensor):
-            data = tensor.detach().cpu().numpy()
+    for label, data in group.items():
+        if isinstance(data, torch.Tensor):
+            data = data.detach().cpu().numpy()
+            plt.plot(data, label=label)
+        elif isinstance(data, dict):
+            x_data = data.keys()
+            y_data = data.values()
+            plt.plot(x_data, y_data, label=label)
         else:
-            data = tensor
-
-        # 绘制曲线
-        plt.plot(data, label=label)
+            plt.plot(data, label=label)
 
     # 添加图表元素
     plt.title("Curves")
