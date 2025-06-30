@@ -32,7 +32,7 @@ class CNNClassifyNet(nn.Module):
                 nn.Conv2d(32, 64, kernel_size=3, padding=1),
                 nn.ReLU(),
                 nn.MaxPool2d(2, 2),
-                nn.Dropout2d(0.4),
+                nn.Dropout2d(0.5),
             )
         )
 
@@ -41,7 +41,7 @@ class CNNClassifyNet(nn.Module):
             nn.Sequential(
                 nn.Conv2d(64, 128, kernel_size=3, padding=1),
                 nn.ReLU(),
-                nn.Dropout2d(0.4),
+                nn.Dropout2d(0.6),
             )
         )
 
@@ -153,17 +153,19 @@ class SpecialNet(nn.Module):
                     kernel_size=3,
                     padding=1,
                 ),
+                nn.GroupNorm(4, 32),
                 nn.SiLU(),
                 nn.MaxPool2d(kernel_size=(2, 1)),
-                nn.Dropout2d(0.3),
+                nn.Dropout2d(0.4),
             )
         )
 
-        # 卷积块2 + 池化
+        # 卷积块2
         self.layers.append(
             nn.Sequential(
                 nn.Conv2d(32, 64, kernel_size=3, padding=1),
-                nn.ReLU(),
+                nn.GroupNorm(8, 64),
+                nn.SiLU(),
                 nn.MaxPool2d(2, 2),
                 nn.Dropout2d(0.4),
             )
@@ -173,7 +175,8 @@ class SpecialNet(nn.Module):
         self.layers.append(
             nn.Sequential(
                 nn.Conv2d(64, 128, kernel_size=3, padding=1),
-                nn.ReLU(),
+                nn.GroupNorm(16, 128),
+                nn.SiLU(),
                 nn.MaxPool2d(2, 2),
                 nn.Dropout2d(0.5),
             )
@@ -191,7 +194,7 @@ class SpecialNet(nn.Module):
             nn.Sequential(
                 nn.Flatten(),
                 nn.Linear(fc_input_size, 512),
-                nn.ReLU(),
+                nn.SiLU(),
                 nn.Linear(512, num_classes),
             )
         )

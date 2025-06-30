@@ -2,6 +2,7 @@ import torch
 from torch import nn
 from torch import optim
 import pytorch_lightning as pl
+from torchmetrics import MetricCollection, Accuracy, ConfusionMatrix
 
 
 class ClassifyPLModel(pl.LightningModule):
@@ -19,14 +20,24 @@ class ClassifyPLModel(pl.LightningModule):
         super().__init__()
         self.model = model
         self.criterion = criterion
-        self.train_metrics = metrics
-        self.val_metrics = metrics.clone()
+        if metrics is not None:
+            metrics = MetricCollection(metrics)
+
+            # 训练评估指标
+            self.train_metrics = metrics
+            self.train_metrics.prefix = "train/"
+
+            # 验证评估指标
+            self.val_metrics = metrics.clone()
+            self.val_metrics.prefix = "val/"
+
+        # 初始学习率
         self.lr = lr
 
     def configure_optimizers(self):
         optimizer = optim.AdamW(self.model.parameters(), lr=self.lr)
-        # scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.98)
-        return optimizer
+        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=60)
+        return [optimizer], [scheduler]
 
     def forward(self, x):
         out = self.model(x)
@@ -38,13 +49,17 @@ class ClassifyPLModel(pl.LightningModule):
         # 前向传播
         outputs = self.model(inputs)
 
-        # 获取预测结果
-        preds = torch.argmax(outputs, 1)
-        batch_value = self.train_metrics(preds, labels)
-        self.__log_metrics(batch_value, prefix="train")
-
+        # 计算损失
         loss = self.criterion(outputs, labels)
         self.log("train/loss", loss)
+
+        # 获取预测结果
+        preds = torch.argmax(outputs, 1)
+        if self.train_metrics is not None:
+            batch_value = self.train_metrics(preds, labels)
+            self.log_dict(
+                self.train_metrics, on_step=False, on_epoch=True, prog_bar=True
+            )
 
         return loss
 
@@ -54,24 +69,12 @@ class ClassifyPLModel(pl.LightningModule):
         # 前向传播
         outputs = self.model(inputs)
 
-        # 获取预测结果
-        preds = torch.argmax(outputs, 1)
-        batch_value = self.val_metrics(preds, labels)
-        self.__log_metrics(batch_value, prefix="val")
-
+        # 计算损失
         loss = self.criterion(outputs, labels)
         self.log("val/loss", loss)
 
-    def __log_metrics(self, metrics, prefix="train"):
-
-        if isinstance(metrics, dict):
-            # 复合指标
-            self.log_dict(metrics, on_step=False, on_epoch=True)
-        else:
-            self.log(
-                f"{prefix}/metrics",
-                metrics,
-                on_step=False,
-                on_epoch=True,
-                prog_bar=True,
-            )
+        # 获取预测结果
+        preds = torch.argmax(outputs, 1)
+        if self.val_metrics is not None:
+            batch_value = self.val_metrics(preds, labels)
+            self.log_dict(self.val_metrics, on_step=False, on_epoch=True, prog_bar=True)

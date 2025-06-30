@@ -3,32 +3,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class MaxSNRLoss(nn.Module):
+def snr_to_constant(loss_value, alpha_bar_t):
     """
-    最大化信噪比损失，仅用于噪声预测网络
+    将信噪比加权损失转换为恒定加权损失
     """
 
-    def __init__(self, gamma=1):
-        super().__init__()
-
-        raise NotImplementedError("MaxSNRLoss is not implemented")
-
-        assert gamma > 0, "gamma must be greater than 0"
-        self.gamma = gamma
-
-    def forward(self, pred_noise, noise, alpha_bar_t):
-        factor = (1 / alpha_bar_t - 1) * self.gamma
-
-        # 计算权重
-        weight = torch.maximum(factor, torch.ones_like(alpha_bar_t))
-
-        # 计算逐样本的MSE损失
-        mse_per_sample = F.mse_loss(pred_noise, noise, reduction="none")
-        mse_per_sample = mse_per_sample.mean(dim=tuple(range(1, mse_per_sample.ndim)))
-
-        # 加权平均
-        weighted_loss = (mse_per_sample * weight).mean()
-        return weighted_loss
+    factor = 1 / alpha_bar_t - 1
+    res = factor * loss_value
+    return res
 
 
 class MinSNRLoss(nn.Module):
@@ -110,9 +92,9 @@ class InverseSigmoidLoss(nn.Module):
         return weighted_loss
 
 
-class InverseSNRLoss(nn.Module):
+class ConstantLoss(nn.Module):
     """
-    反信噪比加权损失, 仅用于噪声预测网络
+    恒定加权损失, 仅用于噪声预测网络
     """
 
     def __init__(self):
@@ -120,11 +102,8 @@ class InverseSNRLoss(nn.Module):
 
     def forward(self, pred_noise, noise, alpha_bar_t):
 
-        # 计算SNR
-        snr = alpha_bar_t / (1 - alpha_bar_t)
-
         # 计算权重
-        weight = 1 / snr
+        weight = 1 / alpha_bar_t - 1
 
         # 计算逐样本的MSE损失
         mse_per_sample = F.mse_loss(pred_noise, noise, reduction="none")

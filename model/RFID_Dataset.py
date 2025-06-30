@@ -8,7 +8,7 @@ from collections import defaultdict
 from typing import Union
 
 
-def load_data_map(data_dir: str, labels: list = None, limit=-1):
+def load_data_map(data_dir: str, labels: list[int] = None, limit=-1):
     """
     加载数据映射，
     """
@@ -45,7 +45,8 @@ def load_data_map(data_dir: str, labels: list = None, limit=-1):
         if labels:
             # 检查标签是否存在
             if label_num not in labels:
-                print(f"{entry.path} 无对应标签")
+                print(f"跳过目录 {entry.path}, 无对应标签")
+                continue
 
         if limit > 0 and len(data_map[label_num]) >= limit:
             continue
@@ -62,7 +63,7 @@ def load_data_map(data_dir: str, labels: list = None, limit=-1):
     if labels:
         for label in labels:
             if label not in data_map:
-                print(f"未在 {data_dir} 中找到标签 {label} 对应的数据")
+                print(f"未找到标签 {label} 对应的数据")
 
     if limit > 0:
         for label, file_paths in data_map.items():

@@ -71,7 +71,7 @@ class CDPLModel(pl.LightningModule):
         else:
             alpha_bar_t = self.model.scheduler.get_alpha_bar(time)
             loss = self.criterion(pred_noise, noise, alpha_bar_t)
-        self.log("train/loss", loss)
+        self.log("train/loss", loss, on_step=False, on_epoch=True, prog_bar=True)
 
         return loss
 
@@ -105,4 +105,4 @@ class CDPLModel(pl.LightningModule):
         else:
             alpha_bar_t = self.model.scheduler.get_alpha_bar(time)
             loss = self.criterion(pred_noise, noise, alpha_bar_t)
-        self.log("val/loss", loss)
+        self.log("val/loss", loss, on_step=False, on_epoch=True, prog_bar=True)
