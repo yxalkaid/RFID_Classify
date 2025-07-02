@@ -1,24 +1,41 @@
+# TimeSeriesWindow.py
 import numpy as np
 from collections import deque
 
 
 class TimeSeriesWindow:
     """
-    时序数据窗口
+    多通道时序数据窗口
+    支持输入 (C, X) 数据，输出 (C, T, X) 窗口
     """
 
-    def __init__(self, T=32, sample_shape=(12,)):
+    def __init__(self, T=32, sample_shape=(3, 12)):
+        """
+        Args:
+            T (int): 窗口长度（时间步数）
+            sample_shape (tuple): 单个样本的形状，例如 (C, X)
+        """
         self.T = T
-        self.sample_shape = sample_shape
+        self.sample_shape = sample_shape  # 应为 (C, X)
 
-        # 初始化缓冲区
-        self.buffer = deque(maxlen=T)
+        if len(sample_shape) != 2:
+            raise ValueError(f"sample_shape 必须是二维，如 (C, X)，得到 {sample_shape}")
+
+        self.C, self.X = sample_shape  # 提取通道数和特征维度
+        self.buffer = deque(maxlen=T)  # 每个元素是形状为 (C, X) 的数组
 
     def add_sample(self, sample, copy=True):
-        if sample.shape != self.sample_shape:
-            raise ValueError(
-                f"样本形状不匹配: 需要 {self.sample_shape}, 得到 {sample.shape}"
-            )
+        """
+        添加一个样本到窗口中
+
+        Args:
+            sample (list): 单点样本
+            copy (bool): 是否复制数据
+        """
+        if len(sample) != self.C * self.X:
+            return
+        else:
+            sample = np.array(sample).reshape(self.sample_shape)
 
         if copy:
             sample = sample.copy()
@@ -26,7 +43,10 @@ class TimeSeriesWindow:
 
     def add_empty_sample(self, count=1):
         """
-        添加空样本
+        添加空样本（全零）
+
+        Args:
+            count (int): 要添加的空样本数量
         """
         if count < 1:
             return
@@ -44,15 +64,21 @@ class TimeSeriesWindow:
         获取完整的窗口数据
 
         Returns:
-            np.ndarray: 形状为 (T, *sample_shape) 的时序数据
-            如果窗口未填满则返回 None
+            np.ndarray or None: 形状为 (C, T, X) 的时序数据，如果未填满则返回 None
         """
-        data = None
-        if self.is_ready():
-            data = np.array(self.buffer)
-        return data
+        if not self.is_ready():
+            return None
+
+        # 将 buffer 中的 (T, C, X) 转换为 ndarray
+        data_T_C_X = np.array(self.buffer)  # shape = (T, C, X)
+
+        # 转换为 (C, T, X)
+        data_C_T_X = np.transpose(data_T_C_X, (1, 0, 2))
+
+        return data_C_T_X
 
     def clear(self):
+        """清空缓冲区"""
         self.buffer.clear()
 
     def __len__(self):

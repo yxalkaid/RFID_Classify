@@ -1,0 +1,12 @@
+// data.proto
+
+syntax = "proto3";
+
+message DataPoint {
+  int64 index = 1;          // 序号
+  double time = 2;          // 毫秒级时间戳
+  repeated double data = 3; // 二维数据列表
+  repeated int32 mask = 4;  // 可选的二维掩码列表
+  int32 C_SIZE = 5;         // 通道数
+  int32 X_SIZE = 6;         // 每通道特征数
+}
