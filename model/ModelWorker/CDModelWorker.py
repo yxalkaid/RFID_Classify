@@ -7,6 +7,7 @@ from tqdm import tqdm
 
 import os
 from typing import Union
+import warnings
 
 
 class CDModelWorker:
@@ -26,6 +27,7 @@ class CDModelWorker:
         epochs=5,
         scheduler=None,
         cond_dropout_rate=0.0,
+        step_range: tuple = None,
         enable_board=False,
         verbose=0,
     ):
@@ -38,6 +40,13 @@ class CDModelWorker:
         self.model.train()
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(device)
+
+        if step_range is not None:
+            assert (
+                1 <= step_range[0] < step_range[1] <= self.model.timesteps
+            ), "step_range must be within the range of model.timesteps"
+        else:
+            step_range = (1, self.model.timesteps + 1)
 
         mse_flag = False
         if isinstance(criterion, nn.MSELoss):
@@ -91,8 +100,8 @@ class CDModelWorker:
 
                 # 随机选择时间步
                 time = torch.randint(
-                    1,
-                    self.model.timesteps + 1,
+                    step_range[0],
+                    step_range[1],
                     (batch_size,),
                     dtype=torch.long,
                     device=device,
@@ -132,7 +141,7 @@ class CDModelWorker:
                 logger.add_scalar("train/loss", train_loss, epoch + 1)
 
             if eval_loader is not None:
-                eval_loss = self.evaluate(eval_loader, criterion, verbose)
+                eval_loss = self.evaluate(eval_loader, criterion, verbose=verbose)
                 epoch_info["eval_loss"] = eval_loss
                 if enable_board and logger:
                     logger.add_scalar("eval/loss", eval_loss, epoch + 1)
@@ -170,6 +179,7 @@ class CDModelWorker:
             ), "step must be within the range of model.timesteps"
         else:
             step = -1
+            warnings.warn("step is not specified, using random step")
 
         running_loss = 0.0
 
@@ -233,7 +243,7 @@ class CDModelWorker:
     def evaluate_sequence(
         self, eval_loader: DataLoader, criterion, time: list, verbose=0
     ):
-        assert self.check_sample_sequence(time, min_value=1), "时间步序列错误"
+        assert self.check_sample_sequence(time, min_value=0), "时间步序列错误"
 
         loss_group = dict()
         for t in time:

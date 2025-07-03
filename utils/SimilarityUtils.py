@@ -141,3 +141,23 @@ def execute_fid_metric(
     # 计算FID
     res = fid_metric.compute()
     return res
+
+
+def execute_fid_pipeline(train_datasets_dict, test_datasets_dict, classes=None):
+    fid_group = {}
+    for i in sorted(test_datasets_dict.keys()):
+        fid_train_dataset = train_datasets_dict.get(i)
+        fid_test_dataset = test_datasets_dict.get(i)
+        if not all([fid_train_dataset, fid_test_dataset]):
+            print(f"label {i} 无对应数据")
+            continue
+
+        # 计算FID分数
+        fid_score = execute_fid_metric_temp(
+            fid_train_dataset,
+            fid_test_dataset,
+            # model=model
+        )
+
+        fid_group[i] = fid_score
+    return fid_group
