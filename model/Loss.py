@@ -81,7 +81,7 @@ class InverseSigmoidLoss(nn.Module):
         logsnr = torch.log(alpha_bar_t / (1 - alpha_bar_t))
 
         # 计算权重
-        weight = torch.sigmoid(logsnr - self.bias) + 1
+        weight = torch.sigmoid(logsnr - self.bias)
 
         # 计算逐样本的MSE损失
         mse_per_sample = F.mse_loss(pred_noise, noise, reduction="none")

@@ -27,7 +27,7 @@ class CDModelWorker:
         epochs=5,
         scheduler=None,
         cond_dropout_rate=0.0,
-        step_range: tuple = None,
+        step_range: tuple=None,
         enable_board=False,
         verbose=0,
     ):
@@ -41,12 +41,11 @@ class CDModelWorker:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(device)
 
-        if step_range is not None:
-            assert (
-                1 <= step_range[0] < step_range[1] <= self.model.timesteps
-            ), "step_range must be within the range of model.timesteps"
-        else:
-            step_range = (1, self.model.timesteps + 1)
+        if step_range is None:
+            step_range = (1, self.model.timesteps+1)
+        assert (
+            1 <= step_range[0] < step_range[1] <= (self.model.timesteps+1)
+        ), "step_range must be within the range of model.timesteps"
 
         mse_flag = False
         if isinstance(criterion, nn.MSELoss):

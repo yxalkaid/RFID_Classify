@@ -306,23 +306,37 @@ def plot_confusion_matrix(
 
 
 def plot_curves(
-    group: dict[str, torch.Tensor | dict | list],
-):
+        group: dict[str, torch.Tensor | dict | list],
+        title="Curves",
+        show_text=False,
+        show_points=False
+    ):
+
+    marker='o' if show_points else None
     plt.figure(figsize=(10, 6))
 
     for label, data in group.items():
         if isinstance(data, torch.Tensor):
             data = data.detach().cpu().numpy()
-            plt.plot(data, label=label)
+            x_data = range(len(data))
+            y_data = data
+            plt.plot(x_data, y_data, label=label, marker=marker)
         elif isinstance(data, dict):
-            x_data = data.keys()
-            y_data = data.values()
-            plt.plot(x_data, y_data, label=label)
+            x_data = list(data.keys())
+            y_data = list(data.values())
+            plt.plot(x_data, y_data, label=label, marker=marker)
         else:
-            plt.plot(data, label=label)
+            x_data = range(len(data))
+            y_data = data
+            plt.plot(x_data, y_data, label=label, marker=marker)
+
+        # 如果数据点数量小于10，显示具体数值
+        if len(x_data) <= 10 and show_text:
+            for i, (x, y) in enumerate(zip(x_data, y_data)):
+                plt.text(x, y, f"{y:.2f}")
 
     # 添加图表元素
-    plt.title("Curves")
+    plt.title(title)
     plt.xlabel("X")
     plt.ylabel("Y")
     plt.legend()
