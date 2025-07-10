@@ -35,9 +35,16 @@ class ClassifyPLModel(pl.LightningModule):
         self.lr = lr
 
     def configure_optimizers(self):
-        optimizer = optim.AdamW(self.model.parameters(), lr=self.lr)
+        optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
         scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=60)
-        return [optimizer], [scheduler]
+        # scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        #     optimizer, factor=0.1, patience=7
+        # )
+
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": scheduler,
+        }
 
     def forward(self, x):
         out = self.model(x)

@@ -51,7 +51,7 @@ def plot_phase_scatter(csv_path, tag_name, limit=1000, offset=0):
         )
 
     # 设置图表属性
-    plt.title(f"Tag {tag_name}, Valid Points: {valid_count}")
+    plt.title(f"Tag {tag_name}, Total Points: {valid_count}")
     plt.xlabel("Time Point")
     plt.ylabel("Value")
     plt.grid(True, linestyle="--", alpha=0.7)
@@ -92,7 +92,7 @@ def plot_phase_diff_scatter(csv_path, tag_name, limit=1000, offset=0, filter_zer
     plt.scatter(valid_time_points, valid_phases, marker="o")
 
     # 设置图表属性
-    plt.title(f"Differences Of Tag {tag_name}, Valid Points: {valid_count}")
+    plt.title(f"Differences Of Tag {tag_name}, Total Points: {valid_count}")
     plt.xlabel("Time Point")
     plt.ylabel("Difference")
     plt.grid(True, linestyle="--", alpha=0.7)
@@ -137,7 +137,7 @@ def plot_phase_diff_line(csv_path, tag_name, limit=1000, offset=0, filter_zero=T
     )
 
     # 设置图表属性
-    plt.title(f"Difference Line Of {tag_name}, Valid Points: {valid_count}")
+    plt.title(f"Difference Line Of {tag_name}, Total Points: {valid_count}")
     plt.xlabel("Time Point")
     plt.ylabel("Difference")
     plt.grid(True, linestyle="--", alpha=0.7)
@@ -306,13 +306,13 @@ def plot_confusion_matrix(
 
 
 def plot_curves(
-        group: dict[str, torch.Tensor | dict | list],
-        title="Curves",
-        show_text=False,
-        show_points=False
-    ):
+    group: dict[str, torch.Tensor | dict | list],
+    title="Curves",
+    show_text=False,
+    show_points=False,
+):
 
-    marker='o' if show_points else None
+    marker = "o" if show_points else None
     plt.figure(figsize=(10, 6))
 
     for label, data in group.items():
